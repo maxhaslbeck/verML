@@ -1,11 +1,81 @@
 theory VCDim
-  imports Complex
+  imports Complex_Main
 begin
 
 lemma "finite A \<Longrightarrow> \<exists>l. set l = A" using finite_list by auto
 
+
+term restrict_map
+
+definition restrictM :: "'a set \<Rightarrow> 'b set \<Rightarrow> ('a \<Rightarrow> 'b option) set" where
+   "restrictM C D = {m. dom m = C \<and> ran m \<subseteq> D \<and> C\<noteq>{}}"
+
+lemma "finite C \<Longrightarrow> finite D \<Longrightarrow> finite (restrictM C D) "
+  unfolding restrictM_def   
+  sorry
+
+lemma "finite D \<Longrightarrow> finite C \<Longrightarrow> card C > 0 \<Longrightarrow> card (restrictM C D) =  card D ^ card C"
+proof (induct rule: finite.induct)
+  case emptyI
+  then show ?case by(auto intro!: ranI simp: restrictM_def power_0_left card_gt_0_iff)   
+next
+  case (insertI A a)
+  then show ?case sorry
+qed 
+
+
+definition restrictH  where
+  "restrictH H C D = restrictM C D \<inter> H"
+  
+definition "restrictMn C D = (if C = {} then {} else {m. dom m = C \<and> ran m \<subseteq> D})"  
+definition "restrictHn H C D = {m\<in>(restrictMn C D). \<exists>h\<in>H. m \<subseteq>\<^sub>m h}"
+definition "shatteringn H C D \<longleftrightarrow> restrictMn C D = restrictHn H C D"
+  
+lemma "shatteringn H C D \<longleftrightarrow> (\<forall>m\<in>(restrictMn C D).\<exists>h\<in>H. m \<subseteq>\<^sub>m h)"
+  by (smt Collect_cong dom_def dom_empty mem_Collect_eq restrictHn_def restrictMn_def shatteringn_def)
+
+lemma assumes "card D = 2"
+  shows "finite C \<Longrightarrow> card (restrictHn H C D) \<le> card ({B. B\<subseteq>C \<and> shatteringn H B D})"
+proof (induct rule: finite.induct)
+  case emptyI
+  then show ?case by (simp add: restrictMn_def restrictHn_def)
+next
+  case (insertI A a)
+  then show ?case sorry
+qed
+
+definition "shattering H C D \<longleftrightarrow> restrictM C D \<subseteq> H"
+
+lemma "shattering H C D \<longleftrightarrow> restrictM C D = restrictH H C D"
+  by(auto simp: shattering_def restrictH_def)
+
+lemma "restrictM C {} = {}" using restrictM_def
+  by (smt Collect_empty_eq bot_least domD dom_def empty_iff equalityI mem_Collect_eq ranI) 
+    
+lemma "H \<noteq> {}  \<Longrightarrow> shattering H {} D"
+  by (simp add: restrictM_def shattering_def) 
+
+lemma assumes "card D = 2"
+      and "\<forall>h\<in>H.  \<forall>x. fun_upd h x None \<in> H"
+  shows "finite C \<Longrightarrow> card (restrictH H C D) \<le> card ({B. B\<subseteq>C \<and> shattering H B D})"
+proof (induct rule: finite.induct)
+  case emptyI
+  then show ?case
+    by (simp add: restrictM_def restrictH_def)
+next
+  case (insertI A a)
+  then show ?case sorry
+qed    
+
+  
+  
+  
+  
+  
 fun restrict :: "('a \<Rightarrow> real) set \<Rightarrow> 'a list \<Rightarrow> real list set" where
 "restrict H C = image (\<lambda>x. map x C) H"
+
+
 
 fun inspair :: "('b\<times>'b list) \<Rightarrow> 'b list" where
 "inspair (a,l) = a#l"
