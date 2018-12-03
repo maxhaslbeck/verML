@@ -1,4 +1,4 @@
-theory VCDim2
+theory VCDim3
   imports Complex_Main AGentleStart
 begin
   
@@ -30,16 +30,17 @@ locale vcd =
 assumes infx: "infinite X"
     and cardY: "card Y = 2"
     and Hdef: "\<forall>h x. h\<in>H \<longrightarrow> h x \<in> Y"
+    and nonemptyH: "H \<noteq> {}"
 begin
 
 lemma "X \<noteq> {}" using infx by auto
 
 abbreviation "H_map \<equiv> image mapify H"
 
-lemma "\<forall>h\<in>H_map. ran h \<subseteq> Y" using Hdef mapify_def
+lemma ranh: "\<forall>h\<in>H_map. ran h \<subseteq> Y" using Hdef mapify_def
   by (smt imageE mem_Collect_eq option.simps(1) ran_def subset_iff)
 
-lemma "\<forall>h\<in>H_map. dom h = UNIV"
+lemma domh: "\<forall>h\<in>H_map. dom h = UNIV"
   by (simp add: mapify_def) 
 
 definition "VCDim = (if finite {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y} then Some (Max {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}) else None)"
@@ -49,24 +50,24 @@ definition "growth m = Max {k. \<exists>C\<subseteq>X. k = card (restrictH H_map
 lemma "{k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m} \<noteq> {}"
   by (smt Collect_empty_eq_bot bot_empty_eq empty_iff infinite_arbitrarily_large infx)
   
-lemma assumes "VCDim H = Some m" 
-  shows "(\<exists>C\<subseteq>X. card C = m \<and> shatters H C Y)"
-   and noshatter: "\<not>(\<exists>C\<subseteq>X. card C > m \<and> shatters H C Y)"
+lemma assumes "VCDim = Some m" 
+  shows "(\<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y)"
+   and noshatter: "\<not>(\<exists>C\<subseteq>X. card C > m \<and> shatters H_map C Y)"
 proof -
-  have s1: "m = Max {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H C Y}" using VCDim_def assms
+  have s1: "m = Max {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}" using VCDim_def assms
     by (metis (mono_tags, lifting) Collect_cong option.discI option.inject)
-  moreover have s2: "finite {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H C Y}" using VCDim_def assms
+  moreover have s2: "finite {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}" using VCDim_def assms
     by (metis (mono_tags, lifting) Collect_cong option.simps(3))
-   moreover have "{m. \<exists>C\<subseteq>X. card C = m \<and> shatters H C Y} \<noteq> {}"
+   moreover have "{m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y} \<noteq> {}"
     using empty_shatted by fastforce
-  ultimately show "\<exists>C\<subseteq>X. card C = m \<and> shatters H C Y" using Max_in by auto
-  show "\<not>(\<exists>C\<subseteq>X. card C > m \<and> shatters H C Y)"
+  ultimately show "\<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y" using Max_in by auto
+  show "\<not>(\<exists>C\<subseteq>X. card C > m \<and> shatters H_map C Y)"
     by (metis (mono_tags, lifting) Max_ge leD mem_Collect_eq s1 s2)
 qed
   
 
 (*Equation 6.3*)
-lemma eq63: "finite C \<Longrightarrow> card (restrictH H C Y) \<le> card ({B. B\<subseteq>C \<and> shatters H B Y})"
+lemma eq63: "finite C \<Longrightarrow> card (restrictH H_map C Y) \<le> card ({B. B\<subseteq>C \<and> shatters H_map B Y})"
 proof (induct rule: finite.induct)
   case emptyI
   then show ?case by (simp add: allmaps_def restrictH_def)
@@ -75,21 +76,17 @@ next
   then show ?case sorry
 qed
 
-(*lemma "m>0 \<Longrightarrow> card C = m \<Longrightarrow> card ({B. B\<subseteq>C}) \<le> 2^m"  
-proof -
-  have "" *)
 
-
-lemma assumes "VCDim H = Some d"
+lemma assumes "VCDim = Some d"
       and "m>0"
       and "C\<subseteq>X"
       and "card C = m"
-    shows superaux: "card (restrictH H C Y) \<le> sum (\<lambda>x. m choose x) {0..d}"
+    shows superaux: "card (restrictH H_map C Y) \<le> sum (\<lambda>x. m choose x) {0..d}"
 proof -
   have f3: "finite C" using assms(2,4) card_ge_0_finite by auto
- have "\<forall>B\<subseteq>C. shatters H B Y \<longrightarrow> card B \<le> d" using assms noshatter
+ have "\<forall>B\<subseteq>C. shatters H_map B Y \<longrightarrow> card B \<le> d" using assms noshatter
     by (meson \<open>C \<subseteq> X\<close> not_le_imp_less order_trans)
-  then have f2: "{B. B\<subseteq>C \<and> shatters H B Y} \<subseteq> {B. B\<subseteq>C \<and> card B \<le> d}" by auto
+  then have f2: "{B. B\<subseteq>C \<and> shatters H_map B Y} \<subseteq> {B. B\<subseteq>C \<and> card B \<le> d}" by auto
   have f1: "finite {B. B\<subseteq>C \<and> card B \<le> d}" using f3 by auto
   have "card {B. B\<subseteq>C \<and> card B \<le> d} \<le> sum (\<lambda>x. m choose x) {0..d}"
   proof (induction d)
@@ -105,52 +102,54 @@ proof -
         by (simp add: f3 card_Un_disjoint)
     then show ?case using f3 by (simp add: n_subsets assms(4) Suc.IH)
   qed
-  from this f2 have "card {B. B\<subseteq>C \<and> shatters H B Y} \<le> sum (\<lambda>x. m choose x) {0..d}"
+  from this f2 have "card {B. B\<subseteq>C \<and> shatters H_map B Y} \<le> sum (\<lambda>x. m choose x) {0..d}"
     by (metis (no_types, lifting) card_mono f1 order_trans)
-  then show "card (restrictH H C Y) \<le> sum (\<lambda>x. m choose x) {0..d}" using eq63 f3
+  then show "card (restrictH H_map C Y) \<le> sum (\<lambda>x. m choose x) {0..d}" using eq63 f3
     by (metis (mono_tags, lifting) Collect_cong dual_order.strict_trans1 neq_iff not_le_imp_less)
 qed
 
 (*Sauers Lemma 6.10*)
-lemma assumes "VCDim H = Some d"
+lemma assumes "VCDim = Some d"
       and "m>0"
-  shows lem610: "growth H m \<le> sum (\<lambda>x. m choose x) {0..d}"
+  shows lem610: "growth m \<le> sum (\<lambda>x. m choose x) {0..d}"
  (* using n_subsets growth_def eq63 noshatter *)
 proof -
-  have "\<forall>n \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H C Y) \<and> card C = m}. n \<le> sum (\<lambda>x. m choose x) {0..d}" using superaux assms(1,2)
+  have "\<forall>n \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}. n \<le> sum (\<lambda>x. m choose x) {0..d}" using superaux assms(1,2)
     by fastforce
-  then have "finite {k. \<exists>C\<subseteq>X. k = card (restrictH H C Y) \<and> card C = m}"
+  then have "finite {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}"
     using finite_nat_set_iff_bounded_le by auto
-  moreover have "{k. \<exists>C\<subseteq>X. k = card (restrictH H C Y) \<and> card C = m} \<noteq> {}"
+  moreover have "{k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m} \<noteq> {}"
   by (smt Collect_empty_eq_bot bot_empty_eq empty_iff infinite_arbitrarily_large infx)
-  ultimately have "growth H m \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H C Y) \<and> card C = m}"
+  ultimately have "growth m \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}"
     using Max_in growth_def by auto
   then show ?thesis
     using assms(1) assms(2) vcd.superaux vcd_axioms by fastforce
 qed
 
 
-lemma "VCDim H = Some d \<Longrightarrow> h\<in>H \<Longrightarrow> dom h = UNIV \<Longrightarrow> ran h \<subseteq> Y \<Longrightarrow> m \<ge> 1 \<Longrightarrow> growth H m \<ge> 1"
+lemma growthgtone: "VCDim = Some d \<Longrightarrow> m \<ge> 1 \<Longrightarrow> growth m \<ge> 1"
 proof -
-  assume a1: "m \<ge> 1" "h\<in>H" "ran h \<subseteq> Y" "dom h = UNIV" "VCDim H = Some d"
-  then have "\<forall>n \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H C Y) \<and> card C = m}. n \<le> sum (\<lambda>x. m choose x) {0..d}" using superaux
+  assume a1: "m \<ge> 1" "VCDim = Some d"
+  then have "\<forall>n \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}. n \<le> sum (\<lambda>x. m choose x) {0..d}" using superaux
     by fastforce
-  then have f2: "finite {k. \<exists>C\<subseteq>X. k = card (restrictH H C Y) \<and> card C = m}"
+  then have f2: "finite {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}"
     using finite_nat_set_iff_bounded_le by auto
-  obtain C where f1: "card C = m" "C\<subseteq>X" "finite C" using infx infinite_arbitrarily_large by blast 
-  from a1 have "ran (\<lambda>x. (if x\<in>C then h x else None)) \<subseteq> Y"
+  obtain C where f1: "card C = m" "C\<subseteq>X" "finite C" using infx infinite_arbitrarily_large by blast
+  obtain h where f3: "h\<in>H_map" using nonemptyH by auto
+  have "ran (\<lambda>x. (if x\<in>C then h x else None)) \<subseteq> Y" using f3 ranh
     by (smt Collect_mono option.simps(3) ran_def subset_eq)
-  moreover from a1 have "dom (\<lambda>x. (if x\<in>C then h x else None)) = C"
+  moreover have "dom (\<lambda>x. (if x\<in>C then h x else None)) = C" using f3 domh
     by (smt Collect_cong Collect_mem_eq UNIV_I domIff)
-  ultimately have "(\<lambda>x. (if x\<in>C then h x else None)) \<in> restrictH H C Y" using restrictH_def allmaps_def f1
-    by (smt a1(1) a1(2) card.empty map_le_def mem_Collect_eq of_nat_0 real_of_nat_ge_one_iff)  
-  then have "restrictH H C Y \<noteq> {}" by auto
-  moreover have "finite (restrictH H C Y)" using cardY finiteres f1(3)
+  ultimately have "(\<lambda>x. (if x\<in>C then h x else None)) \<in> restrictH H_map C Y"
+    using restrictH_def allmaps_def f1 f3 
+    by (smt a1(1) card.empty map_le_def mem_Collect_eq of_nat_0 real_of_nat_ge_one_iff)
+  then have "restrictH H_map C Y \<noteq> {}" by auto
+  moreover have "finite (restrictH H_map C Y)" using cardY finiteres f1(3)
     by (metis card_infinite less_irrefl nat_zero_less_power_iff zero_power2)
-  ultimately have "(card (restrictH H C Y)) \<ge> 1"
+  ultimately have "(card (restrictH H_map C Y)) \<ge> 1"
     by (meson card_0_eq less_one not_le)
-  moreover have "(card (restrictH H C Y))\<in>{k. \<exists>C\<subseteq>X. k = card (restrictH H C Y) \<and> card C = m}" using f1 by auto
-  ultimately show "growth H m \<ge> 1" using growth_def f2
+  moreover have "(card (restrictH H_map C Y))\<in>{k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}" using f1 by auto
+  ultimately show "growth m \<ge> 1" using growth_def f2
     by (metis (no_types, lifting) Collect_cong Max_ge choose_one leD neq0_conv zero_less_binomial_iff) 
 qed
 
@@ -186,19 +185,18 @@ definition Samples :: "nat \<Rightarrow> 'a pmf \<Rightarrow> ('a \<Rightarrow> 
 lemma assumes "set_pmf D \<subseteq> X"
       and "f ` X = Y"
       and "\<delta>\<in>{x.0<x\<and>x<1}"
-    shows aux33: "measure_pmf.prob (Samples m D f) {S. \<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h) \<le> (4+sqrt(ln(real(growth (image mapify H) (2*m)))))/(\<delta> * sqrt(2*m))} \<ge> 1 - \<delta>"
+    shows aux33: "measure_pmf.prob (Samples m D f) {S. \<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h) \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))} \<ge> 1 - \<delta>"
   sorry
 
 
 
-definition representative :: "('a\<Rightarrow>'b) set \<Rightarrow> (nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> nat \<Rightarrow> real \<Rightarrow> 'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
-  "representative H S m \<epsilon> D f \<longleftrightarrow> (\<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>)"
+definition representative :: "(nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> nat \<Rightarrow> real \<Rightarrow> 'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+  "representative S m \<epsilon> D f \<longleftrightarrow> (\<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>)"
 
 
-definition uniform_convergence :: "('a\<Rightarrow>'b) set \<Rightarrow> bool" where
-  "uniform_convergence H  = (\<exists>M::(real \<Rightarrow> real \<Rightarrow> nat). 
+definition "uniform_convergence = (\<exists>M::(real \<Rightarrow> real \<Rightarrow> nat). 
             (\<forall>D f. set_pmf D \<subseteq> X \<longrightarrow> f ` X = Y  \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
-          measure_pmf.prob (Samples m D f) {S. representative H S m \<epsilon> D f} \<ge> 1 - \<delta>)))"
+          measure_pmf.prob (Samples m D f) {S. representative S m \<epsilon> D f} \<ge> 1 - \<delta>)))"
 
 lemma ceil_gr: "y \<ge> ceiling x \<Longrightarrow> real y \<ge> x"
   by linarith
@@ -230,20 +228,19 @@ lemma assumes "set_pmf D \<subseteq> X"
       and "\<epsilon> > 0"
       and "m \<ge> M \<epsilon> \<delta>"
       and "M = (\<lambda>\<epsilon> \<delta>. ceiling (((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2 + (4/(\<epsilon>*\<delta>/2))^2/2 + 1 + d))"
-      and "VCDim (image mapify H) = Some d"
-    shows "measure_pmf.prob (Samples m D f) {S. representative H S m \<epsilon> D f} \<ge> 1 - \<delta>"
+      and "VCDim = Some d"
+    shows "measure_pmf.prob (Samples m D f) {S. representative S m \<epsilon> D f} \<ge> 1 - \<delta>"
 proof -
-  let ?H = "image mapify H"
   have "measure_pmf.prob (Samples m D f) {S. \<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h)
-     \<le> (4+sqrt(ln(real(growth (?H) (2*m)))))/(\<delta> * sqrt(2*m))} \<ge> 1 - \<delta>"
+     \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))} \<ge> 1 - \<delta>"
     using assms aux33 by auto
   have "h\<in>H \<Longrightarrow> abs(PredErr D f h - TrainErr S {0..<m} h)
-     \<le> (4+sqrt(ln(real(growth (?H) (2*m)))))/(\<delta> * sqrt(2*m))
+     \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))
       \<Longrightarrow> abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>"
   proof -
     fix S h
     assume "h\<in>H" "abs(PredErr D f h - TrainErr S {0..<m} h)
-     \<le> (4+sqrt(ln(real(growth (?H) (2*m)))))/(\<delta> * sqrt(2*m))"
+     \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))"
     have f1: "m \<ge> (((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2 + (4/(\<epsilon>*\<delta>/2))^2/2 + 1 + d)"
       using assms(5,6) ceil_gr by auto
     then have a2: "2*m \<ge> d"
@@ -251,20 +248,72 @@ proof -
     from f1 have a1: "2*m > 1"
       by (smt divide_nonneg_nonneg le_add2 le_neq_implies_less less_1_mult mult.right_neutral numeral_eq_one_iff
           of_nat_0_le_iff one_add_one real_of_nat_ge_one_iff semiring_norm(85) zero_le_power2) 
-    from f1 have "m \<ge> ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2"
-      by (smt divide_nonneg_nonneg of_nat_0_le_iff zero_le_power2)
+
     from f1 have "m \<ge> (4/(\<epsilon>*\<delta>/2))^2/2"
       by (smt divide_nonneg_nonneg of_nat_0_le_iff zero_le_power2)
-    from aux123 lem610 a2 a1 assms(7) have f2: "growth ?H (2*m) \<le> (d+1)*(2*m)^d"
+    from aux123 lem610 a2 a1 assms(7) have f2: "growth (2*m) \<le> (d+1)*(2*m)^d"
       by (smt le_trans less_imp_le_nat of_nat_0_less_iff real_of_nat_ge_one_iff) 
-    have f10: "(4+sqrt(ln(real(growth (image mapify H) (2*m)))))/(\<delta> * sqrt(2*m))
-            = 4/(\<delta> * sqrt(2*m)) +sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m))"
-    by (simp add: add_divide_distrib)
+    have f10: "(4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))
+            = 4/(\<delta> * sqrt(2*m)) +sqrt(ln(real(growth (2*m))))/(\<delta> * sqrt(2*m))"
+      by (simp add: add_divide_distrib)
 
-    have "sqrt(ln(real(growth (?H) (2*m))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>/2"
+    have "sqrt(ln(real(growth (2*m))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>/2"
     proof(cases "d > 0")
       case c1: True
-      then show ?thesis sorry
+      have a12: "growth (2*m) \<ge> 1" using growthgtone assms(7) a1 by auto
+      then have "growth (2*m) > 0" by auto
+      then have "ln(growth (2*m)) \<le> ln((d+1)*(2*m)^d)" using f2
+        by (smt le_eq_less_or_eq ln_le_cancel_iff nat_less_real_le of_nat_0)
+      also have "ln ((d+1)*(2*m)^d) = ln (d+1) + d * ln(2*m)" using a1 ln_mult
+        by (smt add_pos_pos c1 less_imp_le_nat ln_realpow of_nat_0_less_iff of_nat_mult
+            of_nat_power real_of_nat_ge_one_iff zero_less_one zero_less_power)
+      also have "(ln(d+1)+d*ln(2*m)) \<le> (ln(d+1)+d*2* sqrt(2*m))"
+        using ln_le_sqrt a1(1) c1 by auto 
+      finally have f12: "(ln(growth (2*m)))/(2*m) \<le> (ln(d+1)+d*2* sqrt(2*m))/(2*m)"
+        by (simp add: divide_right_mono)
+      also have "... = (ln(d+1))/(2*m) + d*2* sqrt(2*m)/(2*m)"
+        using add_divide_distrib by blast
+      also have "... \<le> (ln(d+1))/sqrt(2*m) + d*2* sqrt(2*m)/(2*m)" using sqrt_le_m
+        by (smt a1(1) frac_le le_add2 less_imp_le_nat ln_eq_zero_iff ln_gt_zero_iff
+            real_of_nat_ge_one_iff real_sqrt_gt_0_iff) 
+      also have "... = (ln(d+1))/sqrt(2*m) + d*2/sqrt(2*m)"
+        by (metis divide_divide_eq_right of_nat_0_le_iff real_div_sqrt)
+      also have "... = (ln(d+1)+d*2)/sqrt(2*m)"
+        by (simp add: add_divide_distrib)
+      finally have "sqrt((ln(growth (2*m)))/(2*m)) \<le> sqrt((ln(d+1)+d*2)/sqrt(2*m))"
+        using real_sqrt_le_iff by blast
+      moreover have "sqrt(ln(real(growth (2*m))))/(\<delta> * sqrt(2*m))
+                  = (sqrt(ln(real(growth (2*m))))/sqrt(2*m))/\<delta>" by simp
+      moreover have "(sqrt(ln(real(growth (2*m))))/sqrt(2*m))
+                    = sqrt((ln(growth (2*m)))/(2*m))"
+        by (simp add: real_sqrt_divide)
+      moreover have ad: "\<delta>>0" using assms(3) by auto
+      ultimately have f20: "sqrt(ln(real(growth (2*m))))/(\<delta> * sqrt(2*m))
+             \<le>sqrt((ln(d+1)+d*2)/sqrt(2*m))/\<delta>" using assms(4)
+        by (smt divide_right_mono)
+     from f1 have "m > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2"
+      by (smt divide_nonneg_nonneg of_nat_0_le_iff zero_le_power2)
+     then have "2*m > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2" by auto
+     then have "sqrt(2*m) > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)"
+       using real_less_rsqrt by blast
+     moreover have "((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2) > 0" using assms(4) ad c1
+       by (smt ln_gt_zero_iff nat_0_less_mult_iff nat_less_real_le nonzero_mult_div_cancel_right
+           of_nat_0 of_nat_1 of_nat_add zero_less_divide_iff zero_less_numeral zero_less_power2)
+     ultimately have "1/(sqrt(2*m)) \<le> 1/((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)"
+       using frac_le[of 1 1 "((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)" "sqrt(2*m)"] by auto
+     moreover have "... = ((\<epsilon>*\<delta>/2)^2)/(ln(d+1)+d*2)"
+       by simp
+     moreover have "(ln(d+1)+d*2) > 0" using c1
+       by (simp add: add_pos_pos)
+     ultimately have "(ln(d+1)+d*2)/(sqrt(2*m))\<le>(\<epsilon>*\<delta>/2)^2"
+       using divide_le_cancel by fastforce
+     then have "sqrt((ln(d+1)+d*2)/(sqrt(2*m)))\<le>(\<epsilon>*\<delta>/2)"
+       by (smt ad assms(4) mult_sign_intros(5) real_le_lsqrt
+           real_sqrt_ge_0_iff zero_less_divide_iff)
+     then have "sqrt((ln(d+1)+d*2)/(sqrt(2*m)))\<le>(\<epsilon>/2)*\<delta>" by simp
+     then have "sqrt((ln(d+1)+d*2)/(sqrt(2*m)))/\<delta> \<le> \<epsilon>/2" using ad pos_divide_le_eq by blast
+     from this f20 show ?thesis
+       by linarith
     next
       case False
     then show ?thesis sorry
@@ -274,8 +323,8 @@ proof -
 qed
 
 
-lemma assumes "VCDim (image mapify H) = Some d"
-  shows "uniform_convergence H"
+lemma assumes "VCDim = Some d"
+  shows "uniform_convergence"
 proof -
   (*fix m d :: nat
   assume "d > 0" "m \<ge> d"*)
@@ -374,8 +423,8 @@ proof -
    then have "4/(\<delta>* sqrt(2*m)) \<le> \<epsilon>/2"
      by (simp add: divide_divide_eq_left mult.commute)
 
-   from this f40 f10 have "(4+sqrt(ln(real(growth (image mapify H) (2*m)))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>"
-     by auto
+   from this f40 f10 have "(4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>"
+     sorry
    (*from this ad have "(sqrt(ln(d+1)/sqrt(2*m) + 2*d)) \<le> \<epsilon>*\<delta>/2"
      by (simp add: pos_divide_le_eq)
    then have "ln(d+1)/sqrt(2*m) + 2*d \<le> (\<epsilon>*\<delta>/2)^2"
@@ -388,14 +437,15 @@ proof -
   then have "sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon> \<longleftrightarrow>
         sqrt(ln(real(growth (image mapify H) (2*m))))/(sqrt(2*m)) \<le> \<epsilon>*\<delta>"
 *)
+   oops
 
-definition ERM :: "('a \<Rightarrow> 'b) set \<Rightarrow> (nat \<Rightarrow> ('a \<times> 'b)) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b) set" where
-  "ERM H S n = {h. is_arg_min (TrainErr S {0..<n}) (\<lambda>s. s\<in>H) h}"
+definition ERM :: "(nat \<Rightarrow> ('a \<times> 'b)) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b) set" where
+  "ERM S n = {h. is_arg_min (TrainErr S {0..<n}) (\<lambda>s. s\<in>H) h}"
 
-definition ERMe :: "('a \<Rightarrow> 'b) set \<Rightarrow> (nat \<Rightarrow> ('a \<times> 'b)) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b)" where
-  "ERMe H S n = (SOME h. h\<in> ERM H S n)"
+definition ERMe :: "(nat \<Rightarrow> ('a \<times> 'b)) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b)" where
+  "ERMe S n = (SOME h. h\<in> ERM S n)"
 
-lemma ERM_subset: "ERM H S n \<subseteq> H" 
+lemma ERM_subset: "ERM S n \<subseteq> H" 
   by (simp add: is_arg_min_linorder subset_iff ERM_def)
 
 lemma TrainErr_nn: "TrainErr S I h \<ge> 0"
@@ -407,21 +457,21 @@ proof -
     unfolding TrainErr_def by auto
 qed
 
-lemma ERM_0_in: "h' \<in> H \<Longrightarrow> TrainErr S {0..<n} h' = 0 \<Longrightarrow> h' \<in>ERM H S n"
+lemma ERM_0_in: "h' \<in> H \<Longrightarrow> TrainErr S {0..<n} h' = 0 \<Longrightarrow> h' \<in>ERM S n"
   unfolding ERM_def by (simp add: TrainErr_nn is_arg_min_linorder)
 
 
-definition PAC_learnable :: "('a\<Rightarrow>'b) set \<Rightarrow> ((nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b)) \<Rightarrow> bool" where
-  "PAC_learnable H L = (\<exists>M::(real \<Rightarrow> real \<Rightarrow> nat). 
+definition PAC_learnable :: "((nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b)) \<Rightarrow> bool" where
+  "PAC_learnable L = (\<exists>M::(real \<Rightarrow> real \<Rightarrow> nat). 
             (\<forall>D f. set_pmf D \<subseteq> X \<longrightarrow> f ` X = Y \<longrightarrow> (\<exists>h'\<in>H. PredErr D f h' = 0) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
           measure_pmf.prob (Samples m D f) {S. PredErr D f (L S m) \<le> \<epsilon>} \<ge> 1 - \<delta>)))"
 
-lemma assumes "representative H S m \<epsilon> D f"
+lemma assumes "representative S m \<epsilon> D f"
           and "S\<in>Samples m D f"
           and "set_pmf D \<subseteq> X"
           and "f ` X = Y"
           and RealizabilityAssumption: "\<exists>h'\<in>H. PredErr D f h' = 0"
-        shows reptopred: "PredErr D f (ERMe H S m) \<le> \<epsilon>"
+        shows reptopred: "PredErr D f (ERMe S m) \<le> \<epsilon>"
 proof -
       from RealizabilityAssumption  
     obtain h' where h'H: "h'\<in>H" and u: "PredErr D f h' = 0" by blast
@@ -451,23 +501,23 @@ proof -
       unfolding TrainErr_def   using z  
       by fastforce
 
-    then have "h' \<in>ERM H S m" using ERM_0_in h'H by auto
-    then have "ERMe H S m \<in> ERM H S m" using ERMe_def by (metis some_eq_ex)
-    then have "ERMe H S m \<in> H" using ERM_subset by blast     
+    then have "h' \<in>ERM S m" using ERM_0_in h'H by auto
+    then have "ERMe S m \<in> ERM S m" using ERMe_def by (metis some_eq_ex)
+    then have "ERMe S m \<in> H" using ERM_subset by blast     
     moreover have "(\<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>)"
       using representative_def assms(1) by blast
-    ultimately have "abs(PredErr D f (ERMe H S m) - TrainErr S {0..<m} (ERMe H S m)) \<le> \<epsilon>"
+    ultimately have "abs(PredErr D f (ERMe S m) - TrainErr S {0..<m} (ERMe S m)) \<le> \<epsilon>"
       using assms by auto
-    moreover have "TrainErr S {0..<m} (ERMe H S m) = 0" 
+    moreover have "TrainErr S {0..<m} (ERMe S m) = 0" 
         proof -
-          have f1: "is_arg_min (TrainErr S {0..<m}) (\<lambda>f. f \<in> H) (ERMe H S m)"
-            using ERM_def \<open>ERMe H S m \<in> ERM H S m\<close> by blast
+          have f1: "is_arg_min (TrainErr S {0..<m}) (\<lambda>f. f \<in> H) (ERMe S m)"
+            using ERM_def \<open>ERMe S m \<in> ERM S m\<close> by blast
           have f2: "\<forall>r ra. (((ra::real) = r \<or> ra \<in> {}) \<or> \<not> r \<le> ra) \<or> \<not> ra \<le> r"
             by linarith
           have "(0::real) \<notin> {}"
             by blast
           then show ?thesis
-        using f2 f1 by (metis ERM_def Th'0 TrainErr_nn \<open>h' \<in> ERM H S m\<close> is_arg_min_linorder mem_Collect_eq)
+        using f2 f1 by (metis ERM_def Th'0 TrainErr_nn \<open>h' \<in> ERM S m\<close> is_arg_min_linorder mem_Collect_eq)
         qed
      ultimately show ?thesis by auto
 qed
@@ -476,33 +526,33 @@ lemma subsetlesspmf: "A\<subseteq>B \<Longrightarrow> measure_pmf.prob Q A \<le>
   using measure_pmf.finite_measure_mono by fastforce
 
 lemma assumes "(\<forall>D f. set_pmf D \<subseteq> X \<longrightarrow> f ` X = Y  \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
-          measure_pmf.prob (Samples m D f) {S. representative H S m \<epsilon> D f} \<ge> 1 - \<delta>))"
+          measure_pmf.prob (Samples m D f) {S. representative S m \<epsilon> D f} \<ge> 1 - \<delta>))"
   shows aux44:"set_pmf D \<subseteq> X \<Longrightarrow> f ` X = Y \<Longrightarrow> (\<exists>h'\<in>H. PredErr D f h' = 0) \<Longrightarrow>  \<epsilon> > 0 \<Longrightarrow> \<delta>\<in>{x.0<x\<and>x<1} \<Longrightarrow> m \<ge> M \<epsilon> \<delta> \<Longrightarrow> 
-          measure_pmf.prob (Samples m D f) {S. PredErr D f (ERMe H S m) \<le> \<epsilon>} \<ge> 1 - \<delta>"
+          measure_pmf.prob (Samples m D f) {S. PredErr D f (ERMe S m) \<le> \<epsilon>} \<ge> 1 - \<delta>"
   proof -
   fix D f m \<epsilon> \<delta>
   assume a1: "set_pmf D \<subseteq> X" "f ` X = Y" "\<exists>h'\<in>H. PredErr D f h' = 0" "\<epsilon> > 0" "\<delta>\<in>{x.0<x\<and>x<1}" "m \<ge> M \<epsilon> \<delta>"
-  from this assms have "measure_pmf.prob (Samples m D f) {S. representative H S m \<epsilon> D f} \<ge> 1 - \<delta>" by auto
+  from this assms have "measure_pmf.prob (Samples m D f) {S. representative S m \<epsilon> D f} \<ge> 1 - \<delta>" by auto
   then have "measure_pmf.prob (Samples m D f) 
-  {S. set_pmf D \<subseteq> X \<and> f ` X = Y \<and> (\<exists>h'\<in>H. PredErr D f h' = 0) \<and> (S\<in>Samples m D f) \<and> representative H S m \<epsilon> D f} \<ge> 1 - \<delta>"
+  {S. set_pmf D \<subseteq> X \<and> f ` X = Y \<and> (\<exists>h'\<in>H. PredErr D f h' = 0) \<and> (S\<in>Samples m D f) \<and> representative S m \<epsilon> D f} \<ge> 1 - \<delta>"
     using a1 by (smt DiffE mem_Collect_eq pmf_prob_cong set_pmf_iff)
-  moreover have "{S. set_pmf D \<subseteq> X \<and> f ` X = Y \<and> (\<exists>h'\<in>H. PredErr D f h' = 0) \<and> (S\<in>Samples m D f) \<and> representative H S m \<epsilon> D f}
-        \<subseteq> {S. PredErr D f (ERMe H S m) \<le> \<epsilon>}" using reptopred by blast
-  ultimately show "measure_pmf.prob (Samples m D f) {S. PredErr D f (ERMe H S m) \<le> \<epsilon>} \<ge> 1 - \<delta>"
+  moreover have "{S. set_pmf D \<subseteq> X \<and> f ` X = Y \<and> (\<exists>h'\<in>H. PredErr D f h' = 0) \<and> (S\<in>Samples m D f) \<and> representative S m \<epsilon> D f}
+        \<subseteq> {S. PredErr D f (ERMe S m) \<le> \<epsilon>}" using reptopred by blast
+  ultimately show "measure_pmf.prob (Samples m D f) {S. PredErr D f (ERMe S m) \<le> \<epsilon>} \<ge> 1 - \<delta>"
     using subsetlesspmf order_trans by fastforce
 qed
 
 
 (* lemma 4.2*)
-lemma assumes "uniform_convergence H"(*"representative H S m (\<epsilon>/2)"*)
+lemma assumes "uniform_convergence"(*"representative H S m (\<epsilon>/2)"*)
     and RealizabilityAssumption: "\<exists>h'\<in>H. PredErr D f h' = 0"
-  shows "PAC_learnable H (ERMe H)" 
+  shows "PAC_learnable (ERMe)" 
 proof -
   obtain M where f1: "(\<forall>D f. set_pmf D \<subseteq> X \<longrightarrow> f ` X = Y  \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
-          measure_pmf.prob (Samples m D f) {S. representative H S m \<epsilon> D f} \<ge> 1 - \<delta>))"
+          measure_pmf.prob (Samples m D f) {S. representative S m \<epsilon> D f} \<ge> 1 - \<delta>))"
     using assms uniform_convergence_def by auto
   from aux44 f1 have "(\<forall>D f. set_pmf D \<subseteq> X \<longrightarrow> f ` X = Y \<longrightarrow> (\<exists>h'\<in>H. PredErr D f h' = 0) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
-          measure_pmf.prob (Samples m D f) {S. PredErr D f (ERMe H S m) \<le> \<epsilon>} \<ge> 1 - \<delta>))"
+          measure_pmf.prob (Samples m D f) {S. PredErr D f (ERMe S m) \<le> \<epsilon>} \<ge> 1 - \<delta>))"
   by blast
   then show ?thesis using PAC_learnable_def by auto
 qed

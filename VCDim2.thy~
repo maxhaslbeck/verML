@@ -105,7 +105,7 @@ qed
 (*Sauers Lemma 6.10*)
 lemma assumes "VCDim H = Some d"
       and "m>0"
-  shows "growth H m \<le> sum (\<lambda>x. m choose x) {0..d}"
+  shows lem610: "growth H m \<le> sum (\<lambda>x. m choose x) {0..d}"
  (* using n_subsets growth_def eq63 noshatter *)
 proof -
   have "\<forall>n \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H C Y) \<and> card C = m}. n \<le> sum (\<lambda>x. m choose x) {0..d}" using superaux assms(1,2)
@@ -168,9 +168,137 @@ definition uniform_convergence :: "('a\<Rightarrow>'b) set \<Rightarrow> bool" w
             (\<forall>D f. set_pmf D \<subseteq> X \<longrightarrow> f ` X = Y  \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
           measure_pmf.prob (Samples m D f) {S. representative H S m \<epsilon>} \<ge> 1 - \<delta>)))"
 
+lemma ln_le_sqrt: "m\<ge>1 \<Longrightarrow> ln m \<le> 2 * sqrt(m)"
+  by (metis divide_le_eq linorder_not_less ln_bound ln_sqrt mult.commute not_one_le_zero order.trans real_sqrt_gt_zero zero_less_numeral)
+
+
+lemma sqrt_le_m: "m\<ge>1 \<Longrightarrow> sqrt(m) \<le> m"
+proof -
+  have "m\<ge>1 \<Longrightarrow> sqrt(m) \<le> sqrt m * sqrt m"
+    by (smt real_mult_le_cancel_iff1 real_sqrt_ge_one semiring_normalization_rules(3)
+        semiring_normalization_rules(8))
+  also have "m\<ge>1 \<Longrightarrow> sqrt(m)* sqrt(m) \<le> m" by simp
+  finally show "m\<ge>1 \<Longrightarrow> sqrt(m) \<le> m" by simp
+qed
+
+lemma aux123: "m\<ge>d \<Longrightarrow> sum (\<lambda>x. m choose x) {0..d} \<le> (d+1)*m^d"
+   using sum_bounded_above[of "{0..d}" "(\<lambda>x. m choose x)" "m^d"]
+   by (smt One_nat_def add.right_neutral add_Suc_right atLeastAtMost_iff binomial_le_pow binomial_n_0 card_atLeastAtMost diff_zero
+       le_antisym le_neq_implies_less le_trans less_one nat_le_linear nat_zero_less_power_iff neq0_conv of_nat_id power_increasing_iff)
+
+
 lemma assumes "VCDim (image mapify H) = Some d"
   shows "uniform_convergence H"
-  sorry
+proof -
+  (*fix m d :: nat
+  assume "d > 0" "m \<ge> d"*)
+  fix m ::nat
+  fix \<epsilon> \<delta> :: real
+  assume a1: "2*m>1" "2*m\<ge>d" "d > 0"
+  then have f1: "2*m > 0" by auto
+  let ?H = "image mapify H"
+  from aux123 lem610 assms f1 a1 have f2: "growth ?H (2*m) \<le> (d+1)*(2*m)^d"
+    by (meson le_trans)
+  have f10: "(4+sqrt(ln(real(growth (image mapify H) (2*m)))))/(\<delta> * sqrt(2*m))
+            = 4/(\<delta> * sqrt(2*m)) +sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m))"
+    by (simp add: add_divide_distrib)
+
+  
+ (* then have "sqrt((ln(growth ?H (2*m)))/(2*m)) \<le> sqrt((ln((d+1)*(2*m)^d))/(2*m))"
+    by (simp add: divide_right_mono)
+  have "ln ((d+1)*(2*m)^d) = ln (d+1) + ln((2*m)^d)" using f1 a1 ln_mult zero_less_power
+    by (metis add_gr_0 of_nat_0_less_iff of_nat_mult)
+  then have "sqrt((ln((d+1)*(2*m)^d))/(2*m)) = sqrt((ln(d+1)+d*ln(2*m))/(2*m))" using f1
+    by (metis ln_realpow of_nat_0_less_iff of_nat_power)
+  have "(ln(d+1)+d*ln(2*m))/(2*m) > 0" using a1
+    by (smt ln_gt_zero_iff nat_less_real_le nonzero_divide_mult_cancel_left of_nat_0
+        of_nat_add zero_less_divide_iff zero_less_one) *)
+  assume a12: "growth ?H (2*m) > 1"
+  then have "growth ?H (2*m) > 0" by auto
+  then have "ln(growth ?H (2*m)) \<le> ln((d+1)*(2*m)^d)" using f2
+    by (smt le_eq_less_or_eq ln_le_cancel_iff nat_less_real_le of_nat_0)
+  also have "ln ((d+1)*(2*m)^d) = ln (d+1) + d * ln(2*m)" using f1 a1 ln_mult
+     by (metis add_gr_0 ln_realpow of_nat_0_less_iff of_nat_mult of_nat_power zero_less_power) 
+  also have "(ln(d+1)+d*ln(2*m)) \<le> (ln(d+1)+d*2* sqrt(2*m))"
+    using ln_le_sqrt a1 by auto 
+  finally have f12: "(ln(growth ?H (2*m)))/(2*m) \<le> (ln(d+1)+d*2* sqrt(2*m))/(2*m)"
+    by (simp add: divide_right_mono)
+  also have "... = (ln(d+1))/(2*m) + d*2* sqrt(2*m)/(2*m)"
+    using add_divide_distrib by blast
+  also have "... \<le> (ln(d+1))/sqrt(2*m) + d*2* sqrt(2*m)/(2*m)" using sqrt_le_m
+    by (smt a1(3) f1 frac_le ln_gt_zero_iff nat_less_real_le of_nat_0
+        of_nat_1 of_nat_add real_sqrt_gt_0_iff)
+  also have "... = (ln(d+1))/sqrt(2*m) + d*2/sqrt(2*m)"
+    by (metis divide_divide_eq_right of_nat_0_le_iff real_div_sqrt)
+  also have "... = (ln(d+1)+d*2)/sqrt(2*m)"
+    by (simp add: add_divide_distrib)
+   finally have "sqrt((ln(growth ?H (2*m)))/(2*m)) \<le> sqrt((ln(d+1)+d*2)/sqrt(2*m))"
+     using real_sqrt_le_iff by blast
+   moreover assume ad: "\<delta>>0" "\<epsilon>>0"
+   moreover have "sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m))
+      = (sqrt(ln(real(growth (image mapify H) (2*m))))/sqrt(2*m))/\<delta>" by simp
+   moreover have "(sqrt(ln(real(growth (image mapify H) (2*m))))/sqrt(2*m))
+       = sqrt((ln(growth ?H (2*m)))/(2*m))"
+    by (simp add: real_sqrt_divide)
+   ultimately have f20: "sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m))
+             \<le>sqrt((ln(d+1)+d*2)/sqrt(2*m))/\<delta>"
+     by (smt divide_right_mono)
+   have f22: "sqrt((ln(d+1)+d*2)/(sqrt(2*m))) \<ge> 0" by simp
+   (* assume "(sqrt(ln(d+1)/sqrt(2*m) + 2*d))/\<delta> \<le> \<epsilon>/2" *)
+   assume witnm: "m > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2 + (4/(\<epsilon>*\<delta>/2))^2/2"
+   then have "m > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2"
+     by (smt divide_nonneg_nonneg zero_le_power2)
+   then have "2*m > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2" by auto
+   then have "sqrt(2*m) > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)"
+     using real_less_rsqrt by blast
+   moreover have "((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2) > 0" using ad a1(3)
+     by (smt ln_gt_zero_iff nat_0_less_mult_iff nat_less_real_le nonzero_mult_div_cancel_right
+         of_nat_0 of_nat_1 of_nat_add zero_less_divide_iff zero_less_numeral zero_less_power2)
+   ultimately have "1/(sqrt(2*m)) \<le> 1/((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)"
+     using frac_le[of 1 1 "((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)" "sqrt(2*m)"] by auto
+   moreover have "... = ((\<epsilon>*\<delta>/2)^2)/(ln(d+1)+d*2)"
+     by simp
+   moreover have "(ln(d+1)+d*2) > 0" using a1(3)
+     by (simp add: add_pos_pos)
+   ultimately have "(ln(d+1)+d*2)/(sqrt(2*m))\<le>(\<epsilon>*\<delta>/2)^2"
+     using divide_le_cancel by fastforce
+   then have "sqrt((ln(d+1)+d*2)/(sqrt(2*m)))\<le>(\<epsilon>*\<delta>/2)"
+     by (smt ad(1) ad(2) mult_sign_intros(5) real_le_lsqrt
+         real_sqrt_ge_0_iff zero_less_divide_iff)
+   then have "sqrt((ln(d+1)+d*2)/(sqrt(2*m)))\<le>(\<epsilon>/2)*\<delta>" by simp
+   then have "sqrt((ln(d+1)+d*2)/(sqrt(2*m)))/\<delta> \<le> \<epsilon>/2" using ad pos_divide_le_eq by blast
+   from this f20 have f40: "sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>/2"
+     by linarith
+    
+
+   from witnm have "m > (4/(\<epsilon>*\<delta>/2))^2/2"
+     by (smt divide_nonneg_nonneg zero_le_power2)
+   then have "2*m > (4/(\<epsilon>*\<delta>/2))^2" by auto
+   then have "sqrt(2*m) > 4/(\<epsilon>*\<delta>/2)"
+     using real_less_rsqrt by blast
+   then have "1/sqrt(2*m) \<le> 1/(4/(\<epsilon>*\<delta>/2))" using ad frac_le
+     by (smt mult_pos_pos zero_less_divide_iff)
+   then have "1/sqrt(2*m) \<le> (\<epsilon>*\<delta>/2)/4" by simp
+   then have "4/sqrt(2*m) \<le> (\<epsilon>*\<delta>/2)" by linarith
+   then have "4/sqrt(2*m) \<le> (\<epsilon>/2)*\<delta>" by simp
+   then have "4/sqrt(2*m)/\<delta> \<le> \<epsilon>/2" using ad pos_divide_le_eq by blast
+   then have "4/(\<delta>* sqrt(2*m)) \<le> \<epsilon>/2"
+     by (simp add: divide_divide_eq_left mult.commute)
+
+   from this f40 f10 have "(4+sqrt(ln(real(growth (image mapify H) (2*m)))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>"
+     by auto
+   (*from this ad have "(sqrt(ln(d+1)/sqrt(2*m) + 2*d)) \<le> \<epsilon>*\<delta>/2"
+     by (simp add: pos_divide_le_eq)
+   then have "ln(d+1)/sqrt(2*m) + 2*d \<le> (\<epsilon>*\<delta>/2)^2"
+     using sqrt_le_D by blast
+   then have "ln(d+1)/sqrt(2*m) \<le> (\<epsilon>*\<delta>/2)^2 - 2*d" by simp
+   then have "1/sqrt(2*m) \<le> ((\<epsilon>*\<delta>/2)^2 - 2*d)/ln(d+1)"
+
+   then have "sqrt(2*m)/ln(d+1) \<ge> 1/((\<epsilon>*\<delta>/2)^2 - 2*d)" 
+      
+  then have "sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon> \<longleftrightarrow>
+        sqrt(ln(real(growth (image mapify H) (2*m))))/(sqrt(2*m)) \<le> \<epsilon>*\<delta>"
+*)
 
 definition ERM :: "('a \<Rightarrow> 'b) set \<Rightarrow> (nat \<Rightarrow> ('a \<times> 'b)) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b) set" where
   "ERM H S n = {h. is_arg_min (TrainErr S {0..<n}) (\<lambda>s. s\<in>H) h}"
