@@ -2,8 +2,27 @@ theory VCDim3
   imports Complex_Main AGentleStart
 begin
   
-term Max
-  
+
+
+lemma "dim B < card B \<Longrightarrow> dependent B"
+  using dim_eq_card_independent nat_less_le by auto
+
+lemma "dependent B = (\<exists>a\<in>B. a \<in> span (B - {a}))" using dependent_def by auto
+
+lemma "a \<in> span B \<Longrightarrow> finite B \<Longrightarrow> \<exists>f. a = sum (\<lambda>x. scaleR (f x)  x) B"
+  using span_finite by fastforce
+
+lemma assumes "dim B < card B" 
+        shows "False"
+proof -
+  have "finite B" using assms card_infinite by fastforce
+  then obtain f where "sum (\<lambda>x. scaleR (f x)  x) B = 0" "(\<exists>x. f x \<noteq> 0)"
+    by (metis assms dependent_finite dim_eq_card_independent nat_neq_iff)
+  then have "sum (\<lambda>x. scaleR (f x)  x) {b\<in>B. f b > 0} = sum (\<lambda>x. scaleR (abs (f x))  x) {b\<in>B. f b < 0}"
+
+
+
+
 definition "mapify f = (\<lambda>x. Some (f x))" (*This should exist somewhere*)
   
 definition "allmaps C D = (if C = {} then {} else {m. dom m = C \<and> ran m \<subseteq> D})"  

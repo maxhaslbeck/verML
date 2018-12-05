@@ -220,26 +220,19 @@ lemma aux123: "m\<ge>d \<Longrightarrow> sum (\<lambda>x. m choose x) {0..d} \<l
    by (smt One_nat_def add.right_neutral add_Suc_right atLeastAtMost_iff binomial_le_pow binomial_n_0 card_atLeastAtMost diff_zero
        le_antisym le_neq_implies_less le_trans less_one nat_le_linear nat_zero_less_power_iff neq0_conv of_nat_id power_increasing_iff)
 
-
-
-lemma assumes "set_pmf D \<subseteq> X"
+  lemma assumes "set_pmf D \<subseteq> X"
       and "f ` X = Y"
       and "\<delta>\<in>{x.0<x\<and>x<1}"
       and "\<epsilon> > 0"
       and "m \<ge> M \<epsilon> \<delta>"
-      and "M = (\<lambda>\<epsilon> \<delta>. ceiling (((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2 + (4/(\<epsilon>*\<delta>/2))^2/2 + 1 + d))"
+      and "M = (\<lambda>\<epsilon> \<delta>. nat( ceiling (((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2 + (4/(\<epsilon>*\<delta>/2))^2/2 + 1 + d)))"
       and "VCDim = Some d"
-    shows "measure_pmf.prob (Samples m D f) {S. representative S m \<epsilon> D f} \<ge> 1 - \<delta>"
-proof -
-  have "measure_pmf.prob (Samples m D f) {S. \<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h)
-     \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))} \<ge> 1 - \<delta>"
-    using assms aux33 by auto
-  have "h\<in>H \<Longrightarrow> abs(PredErr D f h - TrainErr S {0..<m} h)
-     \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))
+    shows aux456: "h\<in>H \<Longrightarrow> abs(PredErr D f h - TrainErr S {0..<m} h)
+     \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(real(2*m)))
       \<Longrightarrow> abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>"
   proof -
     fix S h
-    assume "h\<in>H" "abs(PredErr D f h - TrainErr S {0..<m} h)
+    assume a10: "h\<in>H" "abs(PredErr D f h - TrainErr S {0..<m} h)
      \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))"
     have f1: "m \<ge> (((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2 + (4/(\<epsilon>*\<delta>/2))^2/2 + 1 + d)"
       using assms(5,6) ceil_gr by auto
@@ -249,19 +242,19 @@ proof -
       by (smt divide_nonneg_nonneg le_add2 le_neq_implies_less less_1_mult mult.right_neutral numeral_eq_one_iff
           of_nat_0_le_iff one_add_one real_of_nat_ge_one_iff semiring_norm(85) zero_le_power2) 
 
-    from f1 have "m \<ge> (4/(\<epsilon>*\<delta>/2))^2/2"
-      by (smt divide_nonneg_nonneg of_nat_0_le_iff zero_le_power2)
     from aux123 lem610 a2 a1 assms(7) have f2: "growth (2*m) \<le> (d+1)*(2*m)^d"
       by (smt le_trans less_imp_le_nat of_nat_0_less_iff real_of_nat_ge_one_iff) 
-    have f10: "(4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))
+
+    have a12: "growth (2*m) \<ge> 1" using growthgtone assms(7) a1 by auto
+    have ad: "\<delta>>0" using assms(3) by auto
+
+    have "(4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))
             = 4/(\<delta> * sqrt(2*m)) +sqrt(ln(real(growth (2*m))))/(\<delta> * sqrt(2*m))"
       by (simp add: add_divide_distrib)
-
-    have "sqrt(ln(real(growth (2*m))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>/2"
+    moreover have "sqrt(ln(real(growth (2*m))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>/2"
     proof(cases "d > 0")
       case c1: True
-      have a12: "growth (2*m) \<ge> 1" using growthgtone assms(7) a1 by auto
-      then have "growth (2*m) > 0" by auto
+      from a12 have "growth (2*m) > 0" by auto
       then have "ln(growth (2*m)) \<le> ln((d+1)*(2*m)^d)" using f2
         by (smt le_eq_less_or_eq ln_le_cancel_iff nat_less_real_le of_nat_0)
       also have "ln ((d+1)*(2*m)^d) = ln (d+1) + d * ln(2*m)" using a1 ln_mult
@@ -287,9 +280,8 @@ proof -
       moreover have "(sqrt(ln(real(growth (2*m))))/sqrt(2*m))
                     = sqrt((ln(growth (2*m)))/(2*m))"
         by (simp add: real_sqrt_divide)
-      moreover have ad: "\<delta>>0" using assms(3) by auto
       ultimately have f20: "sqrt(ln(real(growth (2*m))))/(\<delta> * sqrt(2*m))
-             \<le>sqrt((ln(d+1)+d*2)/sqrt(2*m))/\<delta>" using assms(4)
+             \<le>sqrt((ln(d+1)+d*2)/sqrt(2*m))/\<delta>" using assms(4) ad
         by (smt divide_right_mono)
      from f1 have "m > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2"
       by (smt divide_nonneg_nonneg of_nat_0_le_iff zero_le_power2)
@@ -316,128 +308,76 @@ proof -
        by linarith
     next
       case False
-    then show ?thesis sorry
+      then have "d=0" by auto
+      then have "growth(2*m) = 1" using a12 f2
+        by (simp add: \<open>d = 0\<close>) 
+      then show ?thesis using assms(4)
+        by auto 
     qed
-    show "abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>"
-  have "{S. (\<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>)}"
+    moreover have "4/(\<delta>* sqrt(2*m)) \<le> \<epsilon>/2"
+    proof -
+     from f1 have "m \<ge> (4/(\<epsilon>*\<delta>/2))^2/2"
+       by (smt divide_nonneg_nonneg of_nat_0_le_iff zero_le_power2)
+     then have "2*m > (4/(\<epsilon>*\<delta>/2))^2"
+       by (smt add_gr_0 f1 field_sum_of_halves less_imp_of_nat_less mult_2 of_nat_1
+           of_nat_add zero_le_power2 zero_less_one) 
+     then have "sqrt(2*m) > 4/(\<epsilon>*\<delta>/2)"
+       using real_less_rsqrt by blast
+     then have "1/sqrt(2*m) \<le> 1/(4/(\<epsilon>*\<delta>/2))" using assms(4) ad frac_le
+       by (smt mult_pos_pos zero_less_divide_iff)
+     then have "1/sqrt(2*m) \<le> (\<epsilon>*\<delta>/2)/4" by simp
+     then have "4/sqrt(2*m) \<le> (\<epsilon>*\<delta>/2)" by linarith
+     then have "4/sqrt(2*m) \<le> (\<epsilon>/2)*\<delta>" by simp
+     then have "4/sqrt(2*m)/\<delta> \<le> \<epsilon>/2" using ad pos_divide_le_eq by blast
+     then show ?thesis
+       by (simp add: divide_divide_eq_left mult.commute)
+    qed
+    ultimately have "(4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>" by auto
+    from this a10 show "abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>" by auto
+  qed
+
+lemma subsetlesspmf: "A\<subseteq>B \<Longrightarrow> measure_pmf.prob Q A \<le> measure_pmf.prob Q B"
+  using measure_pmf.finite_measure_mono by fastforce
+
+lemma assumes "set_pmf D \<subseteq> X"
+      and "f ` X = Y"
+      and "\<delta>\<in>{x.0<x\<and>x<1}"
+      and "\<epsilon> > 0"
+      and "m \<ge> M \<epsilon> \<delta>"
+      and "M = (\<lambda>\<epsilon> \<delta>. nat (ceiling (((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2 + (4/(\<epsilon>*\<delta>/2))^2/2 + 1 + d)))"
+      and "VCDim = Some d"
+    shows aux200: "measure_pmf.prob (Samples m D f) {S. representative S m \<epsilon> D f} \<ge> 1 - \<delta>"
+proof -
+  have "\<forall>h S. h\<in>H \<longrightarrow> abs(PredErr D f h - TrainErr S {0..<m} h)
+     \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(real(2*m)))
+      \<longrightarrow> abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>" using assms aux456 by auto
+  then have "{S. \<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h)
+     \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))}
+     \<subseteq>{S. (\<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>)}" by auto
+  moreover have "measure_pmf.prob (Samples m D f) {S. \<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h)
+     \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))} \<ge> 1 - \<delta>"
+    using assms aux33 by auto
+  ultimately show ?thesis using subsetlesspmf representative_def
+    by (smt Collect_cong) 
 qed
 
 
 lemma assumes "VCDim = Some d"
   shows "uniform_convergence"
 proof -
-  (*fix m d :: nat
-  assume "d > 0" "m \<ge> d"*)
-  fix m ::nat
-  fix \<epsilon> \<delta> :: real
-  assume a1: "2*m>1" "2*m\<ge>d" "d > 0"
-  then have f1: "2*m > 0" by auto
-  let ?H = "image mapify H"
-  from aux123 lem610 assms f1 a1(2) have f2: "growth ?H (2*m) \<le> (d+1)*(2*m)^d"
-    by (meson le_trans)
-  have f10: "(4+sqrt(ln(real(growth (image mapify H) (2*m)))))/(\<delta> * sqrt(2*m))
-            = 4/(\<delta> * sqrt(2*m)) +sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m))"
-    by (simp add: add_divide_distrib)
+  obtain M where "M = (\<lambda>\<epsilon> \<delta>. nat \<lceil>((ln (real (d + 1)) + real (d * 2)) / (\<epsilon> * \<delta> / 2)\<^sup>2)\<^sup>2 / 2 + (4 / (\<epsilon> * \<delta> / 2))\<^sup>2 / 2
+             + 1 + real d\<rceil>)" by auto
+  from this have "(\<forall>D f. set_pmf D \<subseteq> X \<longrightarrow>
+               f ` X = Y \<longrightarrow>
+               (\<forall>(m::nat) \<epsilon>. 0 < \<epsilon> \<longrightarrow>
+                      (\<forall>(\<delta>::real)\<in>{x. 0 < x \<and> x < 1}.
+                          M \<epsilon> \<delta> \<le> m \<longrightarrow>
+                          1 - \<delta> \<le> measure_pmf.prob (Samples m D f) {S. representative S m \<epsilon> D f})))"
+    using aux200 assms by auto
+  then show ?thesis using uniform_convergence_def by auto
+qed
 
-  
- (* then have "sqrt((ln(growth ?H (2*m)))/(2*m)) \<le> sqrt((ln((d+1)*(2*m)^d))/(2*m))"
-    by (simp add: divide_right_mono)
-  have "ln ((d+1)*(2*m)^d) = ln (d+1) + ln((2*m)^d)" using f1 a1 ln_mult zero_less_power
-    by (metis add_gr_0 of_nat_0_less_iff of_nat_mult)
-  then have "sqrt((ln((d+1)*(2*m)^d))/(2*m)) = sqrt((ln(d+1)+d*ln(2*m))/(2*m))" using f1
-    by (metis ln_realpow of_nat_0_less_iff of_nat_power)
-  have "(ln(d+1)+d*ln(2*m))/(2*m) > 0" using a1
-    by (smt ln_gt_zero_iff nat_less_real_le nonzero_divide_mult_cancel_left of_nat_0
-        of_nat_add zero_less_divide_iff zero_less_one) *)
-  assume a12: "growth ?H (2*m) > 1"
-  then have "growth ?H (2*m) > 0" by auto
-  then have "ln(growth ?H (2*m)) \<le> ln((d+1)*(2*m)^d)" using f2
-    by (smt le_eq_less_or_eq ln_le_cancel_iff nat_less_real_le of_nat_0)
-  also have "ln ((d+1)*(2*m)^d) = ln (d+1) + d * ln(2*m)" using f1 ln_mult
-    by (smt add_is_0 less_numeral_extra(1) ln_realpow nat_neq_iff
-        of_nat_le_0_iff of_nat_mult of_nat_power power_not_zero)
-  also have "(ln(d+1)+d*ln(2*m)) \<le> (ln(d+1)+d*2* sqrt(2*m))"
-        apply (cases "d > 0")
-    using ln_le_sqrt a1(1) by auto 
-  finally have f12: "(ln(growth ?H (2*m)))/(2*m) \<le> (ln(d+1)+d*2* sqrt(2*m))/(2*m)"
-    by (simp add: divide_right_mono)
-  also have "... = (ln(d+1))/(2*m) + d*2* sqrt(2*m)/(2*m)"
-    using add_divide_distrib by blast
-  also have "... \<le> (ln(d+1))/sqrt(2*m) + d*2* sqrt(2*m)/(2*m)" using sqrt_le_m
-    by (smt a1(1) frac_le le_add2 less_imp_le_nat ln_eq_zero_iff ln_gt_zero_iff
-        real_of_nat_ge_one_iff real_sqrt_gt_0_iff) 
-  also have "... = (ln(d+1))/sqrt(2*m) + d*2/sqrt(2*m)"
-    by (metis divide_divide_eq_right of_nat_0_le_iff real_div_sqrt)
-  also have "... = (ln(d+1)+d*2)/sqrt(2*m)"
-    by (simp add: add_divide_distrib)
-   finally have "sqrt((ln(growth ?H (2*m)))/(2*m)) \<le> sqrt((ln(d+1)+d*2)/sqrt(2*m))"
-     using real_sqrt_le_iff by blast
-   moreover assume ad: "\<delta>>0" "\<epsilon>>0"
-   moreover have "sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m))
-      = (sqrt(ln(real(growth (image mapify H) (2*m))))/sqrt(2*m))/\<delta>" by simp
-   moreover have "(sqrt(ln(real(growth (image mapify H) (2*m))))/sqrt(2*m))
-       = sqrt((ln(growth ?H (2*m)))/(2*m))"
-    by (simp add: real_sqrt_divide)
-   ultimately have f20: "sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m))
-             \<le>sqrt((ln(d+1)+d*2)/sqrt(2*m))/\<delta>"
-     by (smt divide_right_mono)
-   have f22: "sqrt((ln(d+1)+d*2)/(sqrt(2*m))) \<ge> 0" by simp
-   (* assume "(sqrt(ln(d+1)/sqrt(2*m) + 2*d))/\<delta> \<le> \<epsilon>/2" *)
-   assume witnm: "m > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2 + (4/(\<epsilon>*\<delta>/2))^2/2"
-   then have "m > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2/2"
-     by (smt divide_nonneg_nonneg zero_le_power2)
-   then have "2*m > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)^2" by auto
-   then have "sqrt(2*m) > ((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)"
-     using real_less_rsqrt by blast
-   moreover have "((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2) > 0" using ad a1(3)
-     by (smt ln_gt_zero_iff nat_0_less_mult_iff nat_less_real_le nonzero_mult_div_cancel_right
-         of_nat_0 of_nat_1 of_nat_add zero_less_divide_iff zero_less_numeral zero_less_power2)
-   ultimately have "1/(sqrt(2*m)) \<le> 1/((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)"
-     using frac_le[of 1 1 "((ln(d+1)+d*2)/(\<epsilon>*\<delta>/2)^2)" "sqrt(2*m)"] by auto
-   moreover have "... = ((\<epsilon>*\<delta>/2)^2)/(ln(d+1)+d*2)"
-     by simp
-   moreover have "(ln(d+1)+d*2) > 0" using a1(3)
-     by (simp add: add_pos_pos)
-   ultimately have "(ln(d+1)+d*2)/(sqrt(2*m))\<le>(\<epsilon>*\<delta>/2)^2"
-     using divide_le_cancel by fastforce
-   then have "sqrt((ln(d+1)+d*2)/(sqrt(2*m)))\<le>(\<epsilon>*\<delta>/2)"
-     by (smt ad(1) ad(2) mult_sign_intros(5) real_le_lsqrt
-         real_sqrt_ge_0_iff zero_less_divide_iff)
-   then have "sqrt((ln(d+1)+d*2)/(sqrt(2*m)))\<le>(\<epsilon>/2)*\<delta>" by simp
-   then have "sqrt((ln(d+1)+d*2)/(sqrt(2*m)))/\<delta> \<le> \<epsilon>/2" using ad pos_divide_le_eq by blast
-   from this f20 have f40: "sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>/2"
-     by linarith
-    
 
-   from witnm have "m > (4/(\<epsilon>*\<delta>/2))^2/2"
-     by (smt divide_nonneg_nonneg zero_le_power2)
-   then have "2*m > (4/(\<epsilon>*\<delta>/2))^2" by auto
-   then have "sqrt(2*m) > 4/(\<epsilon>*\<delta>/2)"
-     using real_less_rsqrt by blast
-   then have "1/sqrt(2*m) \<le> 1/(4/(\<epsilon>*\<delta>/2))" using ad frac_le
-     by (smt mult_pos_pos zero_less_divide_iff)
-   then have "1/sqrt(2*m) \<le> (\<epsilon>*\<delta>/2)/4" by simp
-   then have "4/sqrt(2*m) \<le> (\<epsilon>*\<delta>/2)" by linarith
-   then have "4/sqrt(2*m) \<le> (\<epsilon>/2)*\<delta>" by simp
-   then have "4/sqrt(2*m)/\<delta> \<le> \<epsilon>/2" using ad pos_divide_le_eq by blast
-   then have "4/(\<delta>* sqrt(2*m)) \<le> \<epsilon>/2"
-     by (simp add: divide_divide_eq_left mult.commute)
-
-   from this f40 f10 have "(4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon>"
-     sorry
-   (*from this ad have "(sqrt(ln(d+1)/sqrt(2*m) + 2*d)) \<le> \<epsilon>*\<delta>/2"
-     by (simp add: pos_divide_le_eq)
-   then have "ln(d+1)/sqrt(2*m) + 2*d \<le> (\<epsilon>*\<delta>/2)^2"
-     using sqrt_le_D by blast
-   then have "ln(d+1)/sqrt(2*m) \<le> (\<epsilon>*\<delta>/2)^2 - 2*d" by simp
-   then have "1/sqrt(2*m) \<le> ((\<epsilon>*\<delta>/2)^2 - 2*d)/ln(d+1)"
-
-   then have "sqrt(2*m)/ln(d+1) \<ge> 1/((\<epsilon>*\<delta>/2)^2 - 2*d)" 
-      
-  then have "sqrt(ln(real(growth (image mapify H) (2*m))))/(\<delta> * sqrt(2*m)) \<le> \<epsilon> \<longleftrightarrow>
-        sqrt(ln(real(growth (image mapify H) (2*m))))/(sqrt(2*m)) \<le> \<epsilon>*\<delta>"
-*)
-   oops
 
 definition ERM :: "(nat \<Rightarrow> ('a \<times> 'b)) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b) set" where
   "ERM S n = {h. is_arg_min (TrainErr S {0..<n}) (\<lambda>s. s\<in>H) h}"
@@ -522,8 +462,7 @@ proof -
      ultimately show ?thesis by auto
 qed
 
-lemma subsetlesspmf: "A\<subseteq>B \<Longrightarrow> measure_pmf.prob Q A \<le> measure_pmf.prob Q B"
-  using measure_pmf.finite_measure_mono by fastforce
+
 
 lemma assumes "(\<forall>D f. set_pmf D \<subseteq> X \<longrightarrow> f ` X = Y  \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
           measure_pmf.prob (Samples m D f) {S. representative S m \<epsilon> D f} \<ge> 1 - \<delta>))"
