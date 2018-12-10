@@ -2,8 +2,7 @@ theory VCDim3
   imports Complex_Main AGentleStart
 begin
   
-term Max
-  
+
 definition "mapify f = (\<lambda>x. Some (f x))" (*This should exist somewhere*)
   
 definition "allmaps C D = (if C = {} then {} else {m. dom m = C \<and> ran m \<subseteq> D})"  
@@ -17,11 +16,354 @@ lemma finitemaps: "finite C \<Longrightarrow> finite D \<Longrightarrow> finite 
 lemma finiteres: "finite C \<Longrightarrow> finite D \<Longrightarrow> finite (restrictH H C D)"
   by (simp add: finitemaps restrictH_def)
 
-lemma "shatters H C D \<longleftrightarrow> (\<forall>m\<in>(allmaps C D).\<exists>h\<in>H. m \<subseteq>\<^sub>m h)" 
+lemma alt_shatters: "shatters H C D \<longleftrightarrow> (\<forall>m\<in>(allmaps C D).\<exists>h\<in>H. m \<subseteq>\<^sub>m h)" 
   by (smt Collect_cong dom_def dom_empty mem_Collect_eq restrictH_def allmaps_def shatters_def)
   
 lemma empty_shatted: "shatters H {} D"
   by (simp add: allmaps_def restrictH_def shatters_def)
+
+
+lemma "dim B < card B \<Longrightarrow> dependent B"
+  using dim_eq_card_independent nat_less_le by auto
+
+lemma "dependent B = (\<exists>a\<in>B. a \<in> span (B - {a}))" using dependent_def by auto
+
+lemma "a \<in> span B \<Longrightarrow> finite B \<Longrightarrow> \<exists>f. a = sum (\<lambda>x. scaleR (f x)  x) B"
+  using span_finite by fastforce
+
+
+definition "linear_predictor w = (\<lambda>x. inner w x > 0)"
+
+definition "all_linear V = image linear_predictor V"
+
+datatype mivec = Supo "(real \<Rightarrow> nat) set"
+
+typedef ('a,'b)movec = "UNIV::('b \<Rightarrow> 'a) set"
+morphisms vec_nth vec_lambda
+  by simp
+
+
+
+instantiation movec :: (zero, linorder) zero
+begin
+definition "0 \<equiv> vec_lambda (\<lambda> i. 0)"
+  instance ..
+end
+
+instantiation movec :: (plus, linorder) plus
+begin
+  definition "(+) \<equiv> (\<lambda> x y. vec_lambda (\<lambda> i. vec_nth x i + vec_nth y i))"
+  instance ..
+end
+
+instantiation movec :: (minus, linorder) minus
+begin
+  definition "(-) \<equiv> (\<lambda> x y. vec_lambda (\<lambda> i. vec_nth x i - vec_nth y i))"
+  instance ..
+end
+
+instantiation movec :: (uminus, linorder) uminus
+begin
+  definition "uminus \<equiv> (\<lambda> x. vec_lambda (\<lambda> i. - (vec_nth x i)))"
+  instance ..
+end
+
+lemma zero_index [simp]: "0 $ i = 0"
+  unfolding zero_movec_def by simp
+
+lemma movector_add_component [simp]: "vec_nth (x + y) i = vec_nth x i + vec_nth y i"
+  unfolding plus_movec_def
+  by (simp add: movec.vec_lambda_inverse)
+
+lemma movector_minus_component [simp]: "vec_nth (x - y) i = vec_nth x i - vec_nth y i"
+  unfolding minus_movec_def   by (simp add: movec.vec_lambda_inverse)
+
+
+lemma movector_uminus_component [simp]: "vec_nth (- x) i = - (vec_nth x i)"
+  unfolding uminus_movec_def   by (simp add: movec.vec_lambda_inverse)
+
+
+lemma movec_eq_iff: "(x = y) \<longleftrightarrow> (\<forall>i. vec_nth x i = vec_nth y i)"
+  by (simp add: vec_nth_inject [symmetric] fun_eq_iff)
+
+lemma movec_lambda_beta [simp]: "vec_nth (vec_lambda g) i = g i"
+  by (simp add: vec_lambda_inverse)
+
+lemma movec_lambda_unique: "(\<forall>i. vec_nth f i = g i) \<longleftrightarrow> vec_lambda g = f"
+  by (auto simp add: movec_eq_iff)
+
+lemma movec_lambda_eta [simp]: "vec_lambda (\<lambda> i. (vec_nth g i)) = g"
+  by (simp add: movec_eq_iff)
+
+
+instance movec :: (semigroup_add, linorder) semigroup_add
+  by standard (simp add: movec_eq_iff add.assoc)
+
+instance movec :: (ab_semigroup_add, linorder) ab_semigroup_add
+  by standard (simp add: movec_eq_iff add.commute)
+
+instance movec :: (monoid_add, linorder) monoid_add
+  by standard (simp_all add: movec_eq_iff zero_movec_def)
+
+instance movec :: (comm_monoid_add, linorder) comm_monoid_add
+  by standard (simp add: movec_eq_iff)
+
+instance movec :: (cancel_semigroup_add, linorder) cancel_semigroup_add
+  by standard (simp_all add: movec_eq_iff)
+
+instance movec :: (cancel_ab_semigroup_add, linorder) cancel_ab_semigroup_add
+  by standard (simp_all add: movec_eq_iff diff_diff_eq)
+
+instance movec :: (cancel_comm_monoid_add, linorder) cancel_comm_monoid_add ..
+
+instance movec :: (group_add, linorder) group_add
+  by standard (simp_all add: movec_eq_iff zero_movec_def)
+
+instance movec :: (ab_group_add, linorder) ab_group_add
+  by standard (simp_all add: movec_eq_iff)
+
+
+subsection\<open>Basic componentwise operations on movectors\<close>
+
+instantiation movec :: (times, linorder) times
+begin
+
+definition "( * ) \<equiv> (\<lambda> x y.  vec_lambda (\<lambda> i. (vec_nth x i) * (vec_nth y i)))"
+instance ..
+
+end
+
+instantiation movec :: (one, linorder) one
+begin
+
+definition "1 \<equiv> vec_lambda (\<lambda> i. 1)"
+instance ..
+
+end
+
+instantiation movec :: (ord, linorder) ord
+begin
+
+definition "x \<le> y \<longleftrightarrow> (\<forall>i. vec_nth x i \<le> vec_nth y i)"
+definition "x < (y::('a,'b)movec) \<longleftrightarrow> x \<le> y \<and> \<not> y \<le> x"
+instance ..
+
+end
+
+text\<open>The ordering on one-dimensional movectors is linear.\<close>
+
+class cart_one =
+  assumes UNIV_one: "card (UNIV :: 'a set) = Suc 0"
+begin
+
+subclass linorder
+proof
+  from UNIV_one show "linorder (UNIV :: 'a set)"
+    by (auto intro!: card_ge_0_linorder)
+qed
+
+end
+
+instance movec:: (order, linorder) order
+  by standard (auto simp: less_eq_movec_def less_movec_def movec_eq_iff
+      intro: order.trans order.antisym order.strict_implies_order)
+
+instance movec :: (linorder, cart_one) linorder
+proof
+  obtain a :: 'b where all: "\<And>P. (\<forall>i. P i) \<longleftrightarrow> P a"
+  proof -
+    have "card (UNIV :: 'b set) = Suc 0" by (rule UNIV_one)
+    then obtain b :: 'b where "UNIV = {b}" by (auto iff: card_Suc_eq)
+    then have "\<And>P. (\<forall>i\<in>UNIV. P i) \<longleftrightarrow> P b" by auto
+    then show thesis by (auto intro: that)
+  qed
+  fix x y :: "'a^'b::cart_one"
+  note [simp] = less_eq_movec_def less_movec_def all movec_eq_iff field_simps
+  show "x \<le> y \<or> y \<le> x" by auto
+qed
+
+text\<open>Constant Vectors\<close>
+
+definition "movec x = vec_lambda (\<lambda> i. x)"
+
+text\<open>Also the scalar-movector multiplication.\<close>
+
+definition movector_scalar_mult:: "'a::times \<Rightarrow> 'a ^ 'n \<Rightarrow> 'a ^ 'n" (infixl "*s" 70)
+  where "c *s x = vec_lambda (\<lambda> i. c * (vec_nth x i))"
+
+text \<open>scalar product\<close>
+
+definition scalar_product :: "'a :: semiring_1 ^ 'n \<Rightarrow> 'a ^ 'n \<Rightarrow> 'a" where
+  "scalar_product v w = (\<Sum> i \<in> UNIV. v $ i * w $ i)"
+
+
+subsection \<open>Real movector space\<close>
+
+instantiation movec :: (real_vector, linorder) real_vector
+begin
+
+definition "scaleR \<equiv> (\<lambda> r x. vec_lambda (\<lambda> i. scaleR r (vec_nth x i)))"
+
+lemma movector_scaleR_component [simp]: "vec_nth (scaleR r x) i = scaleR r (vec_nth x i)"
+  unfolding scaleR_movec_def by simp
+
+instance
+  by standard (simp_all add: movec_eq_iff scaleR_left_distrib scaleR_right_distrib)
+
+end
+
+
+
+
+instantiation movec :: (real_vector, linorder) real_vector
+begin
+definition "scaleR \<equiv> (\<lambda> r x. vec_lambda (\<lambda> i. scaleR r (vec_nth x i)))"
+instance
+proof
+  fix f1 f2 f3::"('a,'b)movec"
+  fix i::'b
+  show "vec_nth f1 i + vec_nth f2 i + vec_nth f3 i = vec_nth f1 i + (vec_nth f2 i + vec_nth f3 i)"
+
+end
+
+
+datatype  ('a, 'b ) myvec  = Supa "('a \<Rightarrow> 'b) set"
+
+instantiation movec :: uminus
+begin
+definition "uminus \<equiv> (\<lambda> f x. - f x)"
+
+instance ..
+end
+
+instantiation mivec :: real_vector
+begin
+  (*definition "uminus \<equiv> (\<lambda> f x. - f x)"*)
+definition "scaleR \<equiv> (\<lambda> (r::real) (f::nat\<Rightarrow>real) i::nat. scaleR r (f i))"
+
+instance
+  apply standard
+end
+
+instantiation myvec :: (real_vector,real_vector)real_vector
+begin                             
+
+end
+
+term vector_space
+
+locale daba = fixes d::nat
+begin
+
+typedef limnat = "{a :: nat. a < 10}"
+  by (meson mem_Collect_eq numeral_less_iff semiring_norm(76))
+
+setup_lifting type_definition_limnat
+
+class testi =
+  fixes sizi :: "type \<Rightarrow> nat"
+
+instantiation limnat :: finite
+begin
+
+end
+
+instance limnat :: finite
+proof
+  have "(UNIV::limnat set) = image Abs_limnat {a :: nat. a < 10}"
+    using type_definition.univ type_definition_limnat by blast
+  moreover have "finite {a :: nat. a < 10}" by blast
+  ultimately show "finite (UNIV::limnat set)" by (metis finite_imageI)
+qed
+
+end
+
+lemma fixes V::"((real,nat)vec2) set" (* euclidean_space*)
+  assumes "dim V < card B" 
+          and "B\<subseteq>V"
+        shows "\<not> shatters (image mapify (all_linear V)) B {True, False}"
+proof(rule ccontr)
+  have fB: "finite B" using assms card_infinite by fastforce
+  moreover have "dim B < card B" using assms dim_subset order_le_less_subst2 by blast
+  ultimately obtain f x1 where o3: "sum (\<lambda>x. scaleR (f x)  x) B = 0" "(f x1 \<noteq> 0)" "x1\<in>B"
+    by (metis assms dependent_finite dim_eq_card_independent nat_neq_iff)
+  moreover have "{b\<in>B. f b \<ge> 0} \<union> {b\<in>B. f b < 0} = B" by auto
+  moreover have "{b\<in>B. f b \<ge> 0} \<inter> {b\<in>B. f b < 0} = {}" by auto
+  moreover have "finite {b\<in>B. f b \<ge> 0}" using fB by auto
+  moreover have "finite {b\<in>B. f b < 0}" using fB by auto
+  ultimately have "sum (\<lambda>x. scaleR (f x)  x) {b\<in>B. f b \<ge> 0} = - sum (\<lambda>x. scaleR ((f x))  x) {b\<in>B. f b < 0}"
+    using sum.union_disjoint
+    by (metis (mono_tags, lifting) add.inverse_inverse add_eq_0_iff)
+  also have "... = sum (\<lambda>x. scaleR (abs(f x))  x) {b\<in>B. f b < 0}"
+      proof -
+        have f1: "\<forall>a. (a \<in> {a \<in> B. f a < 0}) = (a \<in> B \<and> \<not> 0 \<le> f a)"
+          by fastforce
+      have f2: "\<forall>a. if 0 \<le> f a then (if f a < 0 then - f a else f a) *\<^sub>R a = f a *\<^sub>R a else (if f a < 0 then - f a else f a) *\<^sub>R a = (- 1 * f a) *\<^sub>R a"
+      by force
+        { assume "- (f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}) *\<^sub>R v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}) \<noteq> (if f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}) < 0 then - f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}) else f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0})) *\<^sub>R v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}"
+          then have "(if f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}) < 0 then - f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}) else f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0})) *\<^sub>R v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0} \<noteq> (- 1 * f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0})) *\<^sub>R v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}"
+            by simp
+          then have "v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0} \<notin> {a \<in> B. f a < 0} \<or> - (f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}) *\<^sub>R v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}) = (if f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}) < 0 then - f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}) else f (v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0})) *\<^sub>R v4_0 (\<lambda>a. (if f a < 0 then - f a else f a) *\<^sub>R a) (\<lambda>a. - (f a *\<^sub>R a)) {a \<in> B. f a < 0}"
+            using f2 f1 by meson }
+        then show ?thesis
+          by (simp add: sum_negf)
+      qed        
+  finally have f1: "sum (\<lambda>x. scaleR (f x)  x) {b\<in>B. f b \<ge> 0} = sum (\<lambda>x. scaleR (abs(f x))  x) {b\<in>B. f b < 0}"
+    by auto
+  have "{b\<in>B. f b \<ge> 0} = {b\<in>B. f b > 0} \<union> {b\<in>B. f b = 0}" by auto
+  moreover have "{} = {b\<in>B. f b > 0} \<inter> {b\<in>B. f b = 0}" by auto
+  moreover have "finite {b\<in>B. f b > 0}" using fB by auto
+  moreover have "finite {b\<in>B. f b = 0}"using fB by auto
+  ultimately have "sum (\<lambda>x. scaleR (f x)  x) {b\<in>B. f b \<ge> 0} = sum (\<lambda>x. scaleR (f x)  x) {b\<in>B. f b > 0} +
+            sum (\<lambda>x. scaleR (f x)  x) {b\<in>B. f b = 0}" using sum.union_disjoint by (metis (no_types, lifting))
+  from f1 this have f4: "sum (\<lambda>x. scaleR (f x)  x) {b\<in>B. f b > 0} = sum (\<lambda>x. scaleR (abs(f x))  x) {b\<in>B. f b < 0}"
+    by auto
+
+  let ?T = "f x1 > 0"
+  let ?F = "\<not>?T"
+  let ?TS = "(if ?T then {b\<in>B. f b > 0} else {b\<in>B. f b < 0})"
+  let ?FS = "(if ?F then {b\<in>B. f b > 0} else {b\<in>B. f b < 0})"
+
+  have f5: "x1\<in>?TS" using o3 by auto
+  obtain m where o1: "\<forall>x. m x = (if x\<in>B then (if f x > 0 then Some ?T else Some ?F) else None)" by fastforce
+  then have f2: "\<forall>x\<in>{b\<in>B. f b > 0}. m x = Some ?T" "\<forall>x\<in>{b\<in>B. f b < 0}. m x = Some ?F"
+    by auto
+  from o1 have "ran m \<subseteq> {True, False}" by blast
+  moreover from o1 have f3: "dom m = B"
+    by (meson domI domIff subsetI subset_antisym)
+  moreover have "B\<noteq>{}" using \<open>dim B < card B\<close> by auto 
+  ultimately have "m \<in> (allmaps B {True, False})"
+    by (simp add: allmaps_def)
+  moreover assume "\<not> \<not> shatters (mapify ` all_linear V) B {True, False}"
+  ultimately obtain h where o2: "h\<in>(mapify ` all_linear V)" "m \<subseteq>\<^sub>m h" using alt_shatters by blast
+  then obtain w where o3: "mapify (linear_predictor w) = h" using all_linear_def
+    by (metis (mono_tags, hide_lams) image_iff)
+  have "\<forall>x\<in>?TS. inner w x > 0"
+    using f2 o2(2) o3 f3 linear_predictor_def map_le_def mapify_def 
+    by (metis (no_types, lifting) mem_Collect_eq option.inject)
+  moreover from this f5 have "(abs(f x1)) * (inner w x1) > 0"
+    using zero_less_mult_iff by fastforce
+  ultimately have "sum (\<lambda>x. (abs(f x)) * (inner w x)) ?TS  > 0" using f5
+    by (smt \<open>finite {b \<in> B. 0 < f b}\<close> \<open>finite {b \<in> B. f b < 0}\<close> mult_nonneg_nonneg sum_nonneg sum_nonneg_0) 
+  then have "sum (\<lambda>x. inner w (scaleR (abs(f x)) x)) ?TS  > 0" by auto
+  then have "inner w (sum (\<lambda>x. scaleR (abs(f x)) x) ?TS) > 0"
+    by (simp add: inner_sum_right)
+  moreover from f4 have "sum (\<lambda>x. scaleR (abs(f x)) x) ?TS = sum (\<lambda>x. scaleR (abs(f x))  x) ?FS"
+    by auto
+  ultimately have "inner w (sum (\<lambda>x. scaleR (abs(f x)) x) ?FS) > 0" by auto
+  then have "sum (\<lambda>x. inner w (scaleR (abs(f x)) x)) ?FS  > 0" 
+    by (simp add: inner_sum_right)
+  then have "sum (\<lambda>x. (abs(f x)) * (inner w x)) ?FS  > 0" by auto
+  moreover have "\<forall>x\<in>?FS. inner w x \<le> 0" 
+    using f2 o2(2) o3 f3 linear_predictor_def map_le_def mapify_def
+    by (smt domI option.inject)
+  ultimately show False
+    by (smt sum_nonpos zero_less_mult_iff)
+qed
+
+
+
+
 
 locale vcd =
   fixes X :: "'a set"
