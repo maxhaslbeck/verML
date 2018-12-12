@@ -1,5 +1,5 @@
 theory Boosting
-  imports Complex_Main LinearPredictor
+  imports Complex_Main
 begin
 
 
@@ -36,13 +36,7 @@ lemma ctov: "h t x = y x \<Longrightarrow> h t x * y x = 1" and ctov2: "h t x \<
   
 fun f :: "nat \<Rightarrow> 'a \<Rightarrow> real" where
   "f (Suc t) i = (w t) * (h t i) + f t i"
-|"f 0 i = 0"
-
-definition nh :: "nat \<Rightarrow> nat \<Rightarrow> real" where
- "nh t i = 1"
-
-lemma "\<forall>t\<ge>k. w t = 0 \<Longrightarrow>(\<lambda> i. f t i > 0)  = (\<lambda>i. (linear_predictor (vec_lambda w) (vec_lambda (\<lambda>t. h t i))))"
-  unfolding linear_predictor_def sorry
+ |"f 0 i = 0"
 
 
 lemma splitf: "exp (- f (Suc t) i * y i) = ((exp (- f t i * y i)) * exp (-(w (t))*(h (t) i)*(y i)))"
