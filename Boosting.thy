@@ -38,11 +38,189 @@ fun f :: "nat \<Rightarrow> 'a \<Rightarrow> real" where
   "f (Suc t) i = (w t) * (h t i) + f t i"
 |"f 0 i = 0"
 
-definition nh :: "nat \<Rightarrow> nat \<Rightarrow> real" where
- "nh t i = 1"
+lemma aux34: "movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then w t else 0))
+        = (\<lambda>t. (if t < k then w t else 0))" using vec_lambda_inverse lt_valid[of k w]
+    by auto
 
-lemma "\<forall>t\<ge>k. w t = 0 \<Longrightarrow>(\<lambda> i. f t i > 0)  = (\<lambda>i. (linear_predictor (vec_lambda w) (vec_lambda (\<lambda>t. h t i))))"
-  unfolding linear_predictor_def sorry
+lemma aux35: "movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then h t i else 0))
+        = (\<lambda>t. (if t < k then h t i else 0))" using vec_lambda_inverse lt_valid[of k "(\<lambda>t. h t i)"]
+    by auto
+
+lemma "(\<lambda>i. f k i > 0)  = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then w t else 0))) 
+                                                 (vec_lambda (\<lambda>t. (if t<k then h t i else 0)))))"
+proof -
+  from aux34 have "\<forall>i. {q. movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then w t else 0)) q \<noteq> 0 
+        \<and> movec.vec_nth (vec_lambda (\<lambda>t. (if t<k then h t i else 0))) q \<noteq> 0} \<subseteq> {..<k}"
+    by auto
+  then have "\<forall>i. minner (movec.vec_lambda (\<lambda>t. if t < k then w t else 0))
+               (vec_lambda (\<lambda>t. (if t<k then h t i else 0)))
+             = (\<Sum>ia\<in>{..<k}.
+                 movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then w t else 0)) ia \<bullet>
+                 movec.vec_nth (vec_lambda (\<lambda>t. (if t<k then h t i else 0))) ia)"
+    using minner_alt by auto
+  moreover have "\<forall>i. (\<Sum>ia\<in>{..<k}.
+                 movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then w t else 0)) ia \<bullet>
+                 movec.vec_nth (vec_lambda (\<lambda>t. (if t<k then h t i else 0))) ia) = f k i"
+    unfolding aux34 aux35 
+    apply(induction k)
+    by auto
+  ultimately show ?thesis unfolding linear_predictor_def by auto
+qed
+
+    
+    
+lemma "linear_predictor (vec_lambda (\<lambda>t. (if t<k then w t else 0))) \<in> all_linear(myroom k)"
+  using all_linear_def aux34 myroom_def by auto
+
+
+
+lemma aux857: "(x::real) \<ge> 1 \<Longrightarrow> z \<ge> 0 \<Longrightarrow> x+z \<le> x*(1+z)"
+proof -
+  assume "x\<ge>1" "z\<ge>0"
+  moreover from this have "x*z \<ge> z"
+    by (metis mult_cancel_right2 ordered_comm_semiring_class.comm_mult_left_mono
+        semiring_normalization_rules(7))
+  ultimately show "x+z \<le> x*(1+z)"
+    by (simp add: distrib_left)
+qed
+
+
+lemma two_le_e: "(2::real) < exp 1" using  exp_less_mono
+  by (metis exp_ge_add_one_self less_eq_real_def ln_2_less_1 ln_exp numeral_Bit0 numeral_One) 
+
+
+lemma ln_bound_linear: "x>0 \<Longrightarrow> ln (x::real) \<le> x*(exp (-1))"
+proof -
+  fix x::real
+  assume "x>0"
+  have f1: "\<forall>r. r + ln x = ln (x *\<^sub>R exp r)"
+    by (simp add: \<open>0 < x\<close> ln_mult)
+  have "\<forall>r ra. (ra::real) + (- ra + r) = r"
+    by simp
+  then have "exp (ln(x)) \<le> exp(x*(exp(-1)))"
+    using f1 by (metis (no_types) \<open>0 < x\<close> exp_ge_add_one_self exp_gt_zero
+                 exp_le_cancel_iff exp_ln mult_pos_pos real_scaleR_def)
+  then show "ln x \<le> x * exp (- 1)"
+    by blast
+qed
+
+lemma ln_bound_linear2: "x>0 \<Longrightarrow> (exp 1) * ln (x::real) \<le> x"
+  by (metis (no_types, hide_lams) add.inverse_inverse divide_inverse exp_gt_zero exp_minus
+      ln_bound_linear mult.commute pos_divide_le_eq)
+  
+lemma ln_bound_linear3: "x>0 \<Longrightarrow> a\<le>exp 1 \<Longrightarrow> a > 0 \<Longrightarrow> a * ln (x::real) \<le> x"
+proof -
+assume a1: "0 < x"
+assume a2: "0 < a"
+  assume a3: "a \<le> exp 1"
+  have f4: "\<forall>r ra. (ra::real) \<le> r \<or> \<not> ra < r"
+    by (simp add: linear not_less)
+  then have f5: "\<forall>r. r \<le> x \<or> 0 < r"
+    using a1 by (meson dual_order.trans not_less)
+  have f6: "\<not> a < 0"
+    using f4 a2 by (meson not_less)
+  have f7: "\<forall>r ra rb. ((r::real) \<le> rb \<or> ra < r) \<or> rb < ra"
+    by (meson dual_order.trans not_less)
+  have f8: "\<forall>r. r < x \<or> \<not> r < exp 1 * ln x"
+    using a1 by (meson dual_order.trans ln_bound_linear2 not_less)
+  have f9: "\<forall>r. \<not> (r::real) < r"
+by blast
+have "\<not> exp 1 < a"
+  using a3 not_less by blast
+  then show ?thesis
+    using f9 f8 f7 f6 f5 f4 by (metis (no_types) mult_less_cancel_right zero_less_mult_iff)
+qed
+    
+
+
+lemma fixes a b::real
+  assumes "b\<ge>0"
+    and "a\<ge>sqrt(exp 1)"
+  shows aux937: "(2*a*ln(a) + b) - a * ln (2*a*ln(a) + b) > 0"
+proof -
+  have "2*ln(sqrt(exp 1)) = 1"
+    by (simp add: ln_sqrt)
+  then have f1: "2*ln(a) \<ge> 1" using assms(2)
+    by (smt ln_le_cancel_iff not_exp_le_zero real_sqrt_gt_zero) 
+  have f2: "a > 1"
+    using assms(2) less_le_trans less_numeral_extra(1) one_less_exp_iff real_sqrt_gt_1_iff by blast 
+  have f3: "b/a \<ge> 0" using assms(1) f2 by auto
+
+
+  have "2*ln(a) + b/a \<le> 2*ln(a)*(1+b/a)" using aux857 f1 f3 by auto
+  then have "ln (2*ln(a) + b/a) \<le> ln (2*ln(a)*(1+b/a))"
+    using f1 f3 by auto 
+  then have f4: "- a * ln(2*ln(a)+b/a) \<ge> - a * ln (2*ln(a)*(1+b/a))"
+    using f2 by auto
+  have f5: "ln(2*ln(a)*(1+b/a)) = ln(2*ln(a)) + ln(1+b/a)"
+    using f1 f3 ln_mult by auto
+
+  have "2*a*ln(a) + b = a*(2*ln(a)+b/a)"
+    using f2 by (simp add: distrib_left mult.commute)
+  moreover have "(2*ln(a)+b/a) > 0"
+    using f1 f3 by linarith 
+  ultimately have "ln (2*a*ln(a) + b) = ln a + ln(2*ln(a)+b/a)"
+    using ln_mult f2 by auto
+  then have "(2*a*ln(a) + b) - a * ln (2*a*ln(a) + b)
+              = 2*a*ln(a) + b - a * (ln a + ln(2*ln(a)+b/a))" by auto
+  also have "... = a*ln(a) + b - a * ln(2*ln(a)+b/a)"
+    by (simp add: distrib_left) 
+  also have "... \<ge>
+            a*ln(a) + b - a * ln(2*ln(a)*(1+b/a))" using f4 by auto
+
+  also have "a*ln(a) + b - a * ln(2*ln(a)*(1+b/a))
+           = a*ln(a) - a * ln(2*ln(a)) + b - a * ln(1+b/a)"
+    using f5 by (simp add: distrib_left)
+  finally have f6: "(2*a*ln(a) + b) - a * ln (2*a*ln(a) + b)
+                \<ge> a*ln(a) - a * ln(2*ln(a)) + b - a * ln(1+b/a)" by auto
+
+  have "b/a - a/a * ln(1+b/a) \<ge> 0" using f2 f3 ln_add_one_self_le_self by auto
+  then have f7: "b - a * ln(1+b/a) \<ge> 0" using f2
+    by (metis diff_ge_0_iff_ge dual_order.trans nonzero_mult_div_cancel_left not_le
+        real_mult_le_cancel_iff2 times_divide_eq_left times_divide_eq_right zero_le_one) 
+
+
+   have "a \<ge> exp 1 * ln a"
+    using f2 ln_bound_linear2 by auto
+   moreover have "exp 1 * ln a > 2 * ln a" using two_le_e f2
+     using ln_gt_zero mult_less_cancel_right_disj by blast 
+   ultimately have "ln a > ln (2 * ln a)" 
+     using f1 by (metis exp_gt_zero less_le_trans less_numeral_extra(1)
+         ln_less_cancel_iff not_numeral_less_zero zero_less_mult_iff)  
+   then have "(ln(a)-ln(2*ln(a)))>0" by auto
+   then have "a*ln(a) - a * ln(2*ln(a)) > 0"
+     using f2 by auto
+   from this f6 f7 show ?thesis by auto
+qed
+
+
+lemma fixes x a b::real
+  assumes "x>0" 
+      and "a>0"
+      and "x \<ge> 2*a*ln(a)"
+    shows aux683: "x \<ge> a* ln(x)" 
+proof (cases "a<sqrt(exp 1)")
+  case True
+  moreover have "(1::real) < exp 1"
+    by auto
+  ultimately have "a \<le> exp (1::real)"
+    by (metis eucl_less_le_not_le exp_gt_zero exp_half_le2 exp_ln linear ln_exp ln_sqrt not_less
+        order.trans real_sqrt_gt_zero two_le_e)
+  then show ?thesis using ln_bound_linear3 assms(1,2) by auto
+next
+  case c1: False
+  obtain b where "x = (2*a*ln(a) + b)" "b\<ge>0" using assms(3)
+    by (metis add.commute add.group_left_neutral add_mono_thms_linordered_field(1) diff_add_cancel
+        le_less_trans less_irrefl not_le of_nat_numeral real_scaleR_def)
+  moreover from this have "(2*a*ln(a) + b)  > a * ln (2*a*ln(a) + b)"
+    using aux937 c1 by auto
+  ultimately show ?thesis by auto
+qed
+
+lemma fixes x a::real
+  shows "0 < x \<Longrightarrow> 0 < a \<Longrightarrow> x < a* ln(x) \<Longrightarrow> x < 2*a*ln(a)"
+  using aux683 by (meson not_less)
+
 
 
 lemma splitf: "exp (- f (Suc t) i * y i) = ((exp (- f t i * y i)) * exp (-(w (t))*(h (t) i)*(y i)))"

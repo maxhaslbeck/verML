@@ -23,129 +23,6 @@ lemma empty_shatted: "shatters H {} D"
   by (simp add: allmaps_def restrictH_def shatters_def)
 
 
-lemma "dim B < card B \<Longrightarrow> dependent B"
-  using dim_eq_card_independent nat_less_le by auto
-
-lemma "dependent B = (\<exists>a\<in>B. a \<in> span (B - {a}))" using dependent_def by auto
-
-lemma "a \<in> span B \<Longrightarrow> finite B \<Longrightarrow> \<exists>f. a = sum (\<lambda>x. scaleR (f x)  x) B"
-  using span_finite by fastforce
-
-
-
-
-(*
-lemma fixes V::"(movec) set"
-  assumes "V = {x. \<forall>q\<ge>d. vec_nth x q = 0}"
-  shows "\<exists>B. card B = d \<and> B \<subseteq> V \<and> shatters (image mapify (all_linear V)) B {True, False}"
-proof -
-  let ?B = "(image (\<lambda>k. vec_lambda (\<lambda>i. if i = k then 1 else 0)) {..<d})"
-  have f1: "\<forall>(k::nat). (\<lambda>i. if i = k then 1 else 0) \<in> {f. \<exists>j. \<forall>q>j. f q = 0}"
-     by auto
-  then have "\<forall>k j. k = j \<longleftrightarrow> vec_lambda (\<lambda>i. if i = k then 1 else 0) = vec_lambda (\<lambda>i. if i = j then 1 else 0)"
-    using fun_eq_iff movec.vec_lambda_inject by smt
-  then have "inj (\<lambda>k. vec_lambda (\<lambda>i. if i = k then 1 else 0))" by (meson injI) 
-  then have "card ?B = d"
-    by (metis (no_types, lifting) card_image card_lessThan injD inj_on_def)
-  moreover have "?B \<subseteq> V" using assms f1
-    by (smt image_subset_iff leD lessThan_iff mem_Collect_eq movec.vec_lambda_inverse) 
-  moreover have "(\<forall>m\<in>(allmaps ?B {True, False}).\<exists>h\<in>(image mapify (all_linear V)). m \<subseteq>\<^sub>m h)"
-  proof
-    fix m
-    assume a1: "m\<in>(allmaps ?B {True, False})"
-    then have f15: "\<forall>k\<in>{..<d}. m ((\<lambda>k. vec_lambda (\<lambda>i. if i = k then 1 else 0)) k) \<in> image Some {True, False}"
-    proof(cases "d = 0")
-      case True
-      then show ?thesis by auto
-    next
-      case False
-      then have "?B \<noteq> {}" by auto
-      then show ?thesis using allmaps_def aux41 a1
-        by (smt image_eqI mem_Collect_eq) 
-    qed
-    let ?v = "(\<lambda>x. (if x = Some True then 1 else -1))"
-    obtain w where o0: "\<forall>k<d. vec_nth w k = (?v \<circ> m \<circ> (\<lambda>k. vec_lambda (\<lambda>i. if i = k then 1 else 0))) k" "w\<in>V"
-      using exmovec assms by blast
-    have "\<forall>x\<in>?B. mapify (linear_predictor w) x = m x"
-    proof
-      fix x
-      assume a1: "x \<in> (\<lambda>k. movec.vec_lambda (\<lambda>i. if i = k then 1 else 0)) ` {..<d}"
-      then obtain k where o1: "x = (\<lambda>k. movec.vec_lambda (\<lambda>i. if i = k then 1 else 0)) k" "k < d"
-        by auto
-      then have f2: "\<forall>j\<noteq>k. vec_nth x j = 0" using movec.vec_lambda_cases f1 movec.vec_lambda_inverse
-              proof -
-                { fix nn :: nat
-                  obtain rr :: "movec \<Rightarrow> nat \<Rightarrow> real" where
-                    ff1: "\<forall>m. movec.vec_nth m = rr m"
-                    by blast
-                  then have "\<forall>f. rr (movec.vec_lambda f) = f \<or> f \<notin> {f. \<exists>n. \<forall>na>n. f na = 0}"
-                    by (metis (no_types) movec.vec_lambda_inverse)
-                  then have "\<forall>n. rr (movec.vec_lambda (\<lambda>na. if na = n then 1 else 0)) = (\<lambda>na. if na = n then 1 else 0)"
-                    using f1 by blast
-                  then have "nn = k \<or> movec.vec_nth x nn = 0"
-                    using ff1 o1(1) by presburger }
-                then show ?thesis
-                  by meson
-              qed
-      have f3: "vec_nth x k = 1" using movec.vec_lambda_cases f1 movec.vec_lambda_inverse
-        by (smt \<open>\<And>thesis. (\<And>k. \<lbrakk>x = movec.vec_lambda (\<lambda>i. if i = k then 1 else 0); k < d\<rbrakk> \<Longrightarrow> thesis) \<Longrightarrow> thesis\<close> f2)
-        
-      then have f4: "minner w x = vec_nth w k"
-          proof (cases "vec_nth w k = 0")
-            case True
-            then have "{q. movec.vec_nth w q \<noteq> 0 \<and> movec.vec_nth x q \<noteq> 0} = {}"
-              using f2 by fastforce
-            then show ?thesis using minner_def sum.neutral
-              by (metis (no_types, lifting) Collect_cong True empty_iff)
-          next
-            case False
-            then have "{q. movec.vec_nth w q \<noteq> 0 \<and> movec.vec_nth x q \<noteq> 0} = {k}"
-              using f2 f3 by fastforce 
-            then show ?thesis using minner_def f2 f3 by auto
-          qed
-      show "mapify (linear_predictor w) x = m x"
-      proof(cases "m x = Some True")
-        case True
-        then have "vec_nth w k = 1" using o0 o1 by simp
-        (*then have "minner w x = 1"*)
-      then show ?thesis using f4 linear_predictor_def True
-        by (simp add: mapify_def) 
-      next
-        case False
-        then have "m x = Some False" using f15 a1 by auto
-        moreover from this have "vec_nth w k = -1" using o0 o1 by simp
-        ultimately show ?thesis using f4 linear_predictor_def
-          by (simp add: mapify_def) 
-      qed
-    qed
-      then have "m \<subseteq>\<^sub>m (mapify (linear_predictor w))" using a1 map_le_def allmaps_def
-            proof -
-            have f1: "\<forall>f fa. (fa \<in> Collect ((\<subseteq>\<^sub>m) f)) = (\<forall>m. (m::movec) \<notin> dom f \<or> (f m::bool option) = fa m)"
-            by (simp add: Ball_def_raw map_le_def)
-            have f2: "m \<in> (if (\<lambda>n. movec.vec_lambda (\<lambda>na. if na = n then 1 else 0)) ` {..<d} = {} then {} else {f. dom f = (\<lambda>n. movec.vec_lambda (\<lambda>na. if na = n then 1 else 0)) ` {..<d} \<and> ran f \<subseteq> {True, False}})"
-              using a1 allmaps_def by blast
-              have f3: "\<forall>F f. F \<noteq> {} \<or> (f::movec \<Rightarrow> bool option) \<notin> F"
-                by blast
-              have "\<forall>M B f. (f \<in> {f. dom f = (M::movec set) \<and> ran f \<subseteq> (B::bool set)}) = (dom f = M \<and> ran f \<subseteq> B)"
-                by simp
-              then have "mapify (linear_predictor w) \<in> Collect ((\<subseteq>\<^sub>m) m)"
-                using f3 f2 f1 \<open>\<forall>x\<in>(\<lambda>k. movec.vec_lambda (\<lambda>i. if i = k then 1 else 0)) ` {..<d}. mapify (linear_predictor w) x = m x\<close> by presburger
-              then show ?thesis
-                by blast
-            qed 
-            moreover have "mapify (linear_predictor w) \<in> (image mapify (all_linear V))"
-              using o0(2) all_linear_def by blast
-            ultimately show "\<exists>h\<in>(image mapify (all_linear V)). m \<subseteq>\<^sub>m h" by auto
-          qed
-          ultimately show "\<exists>B. card B = d \<and> B \<subseteq> V \<and> shatters (image mapify (all_linear V)) B {True, False}"
-            using alt_shatters by blast
-
-
- qed
-
- term module
-*)
-
 locale vcd =
   fixes X :: "'a set"
     and Y :: "'b set"
@@ -190,13 +67,27 @@ proof -
     by (metis (mono_tags, lifting) Max_ge leD mem_Collect_eq s1 s2)
 qed
 
-lemma "VCDim = Some m \<longleftrightarrow>
+
+lemma VCDim_alt: "VCDim = Some m \<longleftrightarrow>
   (\<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y) \<and>
    \<not>(\<exists>C\<subseteq>X. card C > m \<and> shatters H_map C Y)"
   apply rule
   apply (simp add: doshatter noshatter)
+  apply (rule conjE[of "(\<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y)" "\<not>(\<exists>C\<subseteq>X. card C > m \<and> shatters H_map C Y)"])
+  apply simp
 proof -
-  
+  assume a1: "(\<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y)"
+  assume a2: "\<not> (\<exists>C\<subseteq>X. m < card C \<and> shatters H_map C Y)"
+  then have "\<forall>k\<in>{m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}. k \<le> m"
+    using leI by blast
+  moreover from this have f1: "finite {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}"
+    using finite_nat_set_iff_bounded_le by auto
+  moreover from a1 have "m \<in> {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}" by auto
+  ultimately have "Max {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y} = m"
+    by (meson Max_eqI)
+  then show "VCDim = Some m"
+    using VCDim_def f1 by auto
+qed
 
 (*Equation 6.3*)
 lemma eq63: "finite C \<Longrightarrow> card (restrictH H_map C Y) \<le> card ({B. B\<subseteq>C \<and> shatters H_map B Y})"
@@ -312,6 +203,47 @@ definition Sample ::"'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ('
 definition Samples :: "nat \<Rightarrow> 'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ((nat \<Rightarrow> 'a \<times> 'b)) pmf" where
   "Samples n D f = Pi_pmf {0..<n} undefined (\<lambda>_. Sample D f)"
 
+
+
+lemma "AE x in measure_pmf M. X' x \<in> UNIV"
+  by simp
+
+
+(*for lemma A.3*)
+lemma "measure_pmf.expectation p (abs \<circ> f)
+   \<le> infsetsum (\<lambda>i. (a::real) * (Suc i) * (measure_pmf.prob p {x. (abs \<circ> f) x > a * i})) UNIV"
+  oops
+
+lemma "abs (infsetsum f A) \<le> infsetsum (abs \<circ> f) A"
+  oops
+
+
+
+lemma "convex_on UNIV abs"
+unfolding convex_on_def
+  apply (simp)
+  by (metis (mono_tags, hide_lams) abs_mult abs_of_nonneg abs_triangle_ineq add.commute mult.commute)
+
+lemma "\<forall>x. f x \<in> {-1<..<1::real} \<Longrightarrow> f \<in> borel_measurable borel"
+  oops
+
+
+lemma "\<forall>x. f x \<in> {-1<..<1::real} \<Longrightarrow> simple_function (measure_pmf M) f"
+  oops
+
+lemma "\<forall>x. f x \<in> {-1<..<1} \<Longrightarrow> integrable (measure_pmf M) f"
+  oops
+
+lemma "emeasure (measure_pmf M) {(y::real) \<in> space M. id y \<noteq> 0} \<noteq> \<infinity>"
+  by simp 
+
+lemma "integrable (measure_pmf M) (id::(real\<Rightarrow>real))" 
+  oops
+
+
+(*for Jensens*)
+lemma "abs (measure_pmf.expectation p f) \<le> measure_pmf.expectation p (abs \<circ> f)"
+  using pmf_expectation_eq_infsetsum abs_triangle_ineq sorry
 
 (*Theorem 6.11*)
 lemma assumes "set_pmf D \<subseteq> X"

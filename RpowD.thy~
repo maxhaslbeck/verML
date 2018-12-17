@@ -654,7 +654,7 @@ proof -
     by (metis (no_types, lifting) card_image card_lessThan injD inj_on_def)
 qed
 
-lemma "dim (myroom d) = d" using cardbasis indbasis roomSpan
+lemma dim_room: "dim (myroom d) = d" using cardbasis indbasis roomSpan
   by (simp add: dim_eq_card_independent) 
 
 lemma infiniteroom: "d > 0 \<Longrightarrow> infinite (myroom d)"
