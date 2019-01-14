@@ -268,24 +268,6 @@ proof -
     by (simp add: measure_pmf_conv_infsetsum) 
 qed
 
-lemma "((g:: 'c \<Rightarrow> real) y) * measure_pmf.expectation D f = measure_pmf.expectation D (\<lambda>x. (g y) * f x)"
-   by simp
-
-lemma "measure_pmf.expectation D f - (a::real) = measure_pmf.expectation D (\<lambda>x. f x - a)"
-proof -
-  have "measure_pmf.expectation D f - (a::real) = (\<Sum>\<^sub>ax. pmf D x * f x) - (\<Sum>\<^sub>ax. pmf D x * a)"
-    using pmf_expectation_eq_infsetsum infsetsum_pmf_eq_1
-  proof -
-    have "\<forall>p. integral\<^sup>L (count_space (UNIV::'c set)) (pmf p) = 1"
-      by (metis (no_types) infsetsum_def measure_pmf_UNIV measure_pmf_conv_infsetsum)
-    then show ?thesis
-      by (simp add: infsetsum_def pmf_expectation_eq_infsetsum)
-  qed 
-    by (metis infsetsum_cong measure_pmf_UNIV measure_pmf_conv_infsetsum mult_cancel_right1)
-  have "... = (\<Sum>\<^sub>ax. pmf D x * (f x - a))"
-qed
-
-
 lemma assumes "card I > 0"
           and "(\<lambda>x. pmf D x * f x) abs_summable_on UNIV"
   shows stichprobenmittel: "measure_pmf.expectation (Pi_pmf I undefined (\<lambda>_. D)) (\<lambda>S. sum (f \<circ> S) I / card I)
