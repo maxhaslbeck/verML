@@ -4,8 +4,8 @@ begin
   
 
 definition "mapify f = (\<lambda>x. Some (f x))" (*This should exist somewhere*)
-  
-definition "allmaps C D = (if C = {} then {} else {m. dom m = C \<and> ran m \<subseteq> D})"  
+(*definition "allmaps C D = (if C = {} then {} else {m. dom m = C \<and> ran m \<subseteq> D})"  *)  
+definition "allmaps C D = {m. dom m = C \<and> ran m \<subseteq> D}"  
 definition "restrictH H C D = {m\<in>(allmaps C D). \<exists>h\<in>H. m \<subseteq>\<^sub>m h}"
 definition "shatters H C D \<longleftrightarrow> allmaps C D = restrictH H C D"
 
@@ -19,8 +19,67 @@ lemma finiteres: "finite C \<Longrightarrow> finite D \<Longrightarrow> finite (
 lemma alt_shatters: "shatters H C D \<longleftrightarrow> (\<forall>m\<in>(allmaps C D).\<exists>h\<in>H. m \<subseteq>\<^sub>m h)" 
   by (smt Collect_cong dom_def dom_empty mem_Collect_eq restrictH_def allmaps_def shatters_def)
   
-lemma empty_shatted: "shatters H {} D"
-  by (simp add: allmaps_def restrictH_def shatters_def)
+(*lemma empty_shatted: "shatters H {} D"
+  by (simp add: allmaps_def restrictH_def shatters_def)*)
+
+lemma assumes "dom (f::('a \<Rightarrow> 'b option)) = {}"
+  shows allmaps_e: "allmaps {} D = {f}"
+proof -
+    have "f\<in>(allmaps {} D)" using assms by (simp add: allmaps_def)
+    moreover have "\<forall>g\<in>(allmaps {} D). g = f" using assms
+      by (simp add: allmaps_def)
+    ultimately show ?thesis by blast
+  qed
+
+
+lemma fixes m d
+  assumes "m\<in>(allmaps F D)" "d\<in>D" 
+  shows upd_in_all: "m(x:=Some d)\<in>(allmaps (insert x F) D)"
+proof -
+  have "dom (m(x \<mapsto> d)) = (insert x F)"
+    by (metis (mono_tags, lifting) allmaps_def assms(1) dom_fun_upd mem_Collect_eq option.simps(3))
+  moreover have "ran (m(x \<mapsto> d)) \<subseteq> D"
+  proof(rule ccontr)
+    assume "\<not> ran (m(x \<mapsto> d)) \<subseteq> D"
+    then obtain z where o1: "z \<in> ran (m(x \<mapsto> d))" "z\<notin>D" by auto
+    then obtain y where o2: "(m(x \<mapsto> d)) y = Some z" by (auto simp: ran_def)
+    then have "x\<noteq>y" using assms(2) o1 by auto
+    moreover have "ran m \<subseteq> D"
+    using allmaps_def assms(1) by fastforce
+    ultimately show False
+      using o2 ranI o1(2) by fastforce
+  qed
+  ultimately show ?thesis
+    by (simp add: allmaps_def)
+qed
+
+lemma "(\<forall>x\<in>A. \<forall>y\<in>A. x\<noteq>y \<longrightarrow> f x \<noteq> f y) \<Longrightarrow> inj_on f A"
+  using inj_on_def by blast
+
+lemma assumes "x\<notin>F"
+  shows "bij_betw (\<lambda>(m,d). m(x:=Some d)) ((allmaps F D) \<times> D) (allmaps (insert x F) D)"
+  apply(rule bij_betw_imageI)
+   apply(simp add: inj_on_def)
+proof -
+  
+
+lemma assumes "finite D"
+    shows "finite C \<Longrightarrow> card (allmaps C D) = (card D) ^ (card C)"
+proof (induct rule: finite_induct)
+  case empty
+  then show ?case by (simp add: allmaps_e) 
+next
+  case c1: (insert x F)
+  then have "card (insert x F) = card F + 1"
+    by auto
+  from this c1 have "card D ^ card (insert x F) = card (allmaps F D) * card D"
+    by simp
+  have "\<forall>m\<in>(allmaps F D). \<forall>d\<in>D. m(x:=Some d)\<in>(allmaps (insert x F) D)"
+    using upd_in_all by auto
+  moreover have "\<forall>m\<in>(allmaps (insert x F) D). \<exists>n\<in>(allmaps F D). \<exists>d\<in>D. m = n(x:= Some d)"
+  then show ?case sorry
+qed
+
 
 
 locale vcd =learning_basics where X=X and Y=Y and H=H
@@ -37,6 +96,20 @@ lemma ranh: "\<forall>h\<in>H_map. ran h \<subseteq> Y" using Hdef mapify_def
 
 lemma domh: "\<forall>h\<in>H_map. dom h = UNIV"
   by (simp add: mapify_def) 
+
+
+
+lemma empty_shatted: "shatters H_map {} D"
+  unfolding shatters_def restrictH_def
+proof -
+  obtain h where "h\<in>H_map" using nnH by auto
+  moreover obtain f::"('a \<Rightarrow> 'b option)" where s1: "dom f = {}" by auto
+  moreover from this have "f \<subseteq>\<^sub>m h" by auto
+  moreover have "allmaps {} D = {f}" using allmaps_e s1(1) by blast 
+  ultimately show "allmaps {} D = {m \<in> allmaps {} D. Bex H_map ((\<subseteq>\<^sub>m) m)}"
+    by auto
+qed
+
 
 definition "VCDim = (if finite {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y} then Some (Max {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}) else None)"
 
@@ -88,7 +161,12 @@ qed
 lemma eq63: "finite C \<Longrightarrow> card (restrictH H_map C Y) \<le> card ({B. B\<subseteq>C \<and> shatters H_map B Y})"
 proof (induct rule: finite.induct)
   case emptyI
-  then show ?case by (simp add: allmaps_def restrictH_def)
+  obtain f::"('a \<Rightarrow> 'b option)" where "dom f = {}" by simp
+  then have "allmaps {} Y = {f}" using allmaps_e by auto
+  then have "card (restrictH H_map {} Y) = 1" using empty_shatted shatters_def
+    by (metis is_singletonI is_singleton_altdef)
+  moreover have "{B. B\<subseteq>{} \<and> shatters H_map B Y} = {{}}" using empty_shatted by blast 
+  ultimately show ?case by auto
 next
   case (insertI A a)
   then show ?case sorry
