@@ -2,12 +2,18 @@ theory VCDim
   imports Complex_Main LearningTheory RpowD
 begin
   
+lemma card_2_explicit: "a\<in>A \<Longrightarrow> b\<in>A \<Longrightarrow> a\<noteq>b \<Longrightarrow> card A = 2 \<Longrightarrow> A = {a,b}"
+  by (smt One_nat_def Suc_inject card.remove card_1_singletonE card_infinite doubleton_eq_iff
+      insert_Diff_single insert_absorb2 mk_disjoint_insert numeral_2_eq_2 zero_neq_numeral)
+
 
 definition "mapify f = (\<lambda>x. Some (f x))" (*This should exist somewhere*)
 (*definition "allmaps C D = (if C = {} then {} else {m. dom m = C \<and> ran m \<subseteq> D})"  *)  
 definition "allmaps C D = {m. dom m = C \<and> ran m \<subseteq> D}"  
 definition "restrictH H C D = {m\<in>(allmaps C D). \<exists>h\<in>H. m \<subseteq>\<^sub>m h}"
 definition "shatters H C D \<longleftrightarrow> allmaps C D = restrictH H C D"
+
+
 
 
 lemma finitemaps: "finite C \<Longrightarrow> finite D \<Longrightarrow> finite (allmaps C D)"
@@ -21,6 +27,10 @@ lemma alt_shatters: "shatters H C D \<longleftrightarrow> (\<forall>m\<in>(allma
   
 (*lemma empty_shatted: "shatters H {} D"
   by (simp add: allmaps_def restrictH_def shatters_def)*)
+
+lemma hx_none: "h\<in>restrictH H C D \<Longrightarrow> x \<in> C \<Longrightarrow> h x \<noteq> None"
+  by (metis (mono_tags, lifting) allmaps_def domIff mem_Collect_eq restrictH_def)
+
 
 lemma assumes "dom (f::('a \<Rightarrow> 'b option)) = {}"
   shows allmaps_e: "allmaps {} D = {f}"
@@ -56,12 +66,41 @@ qed
 lemma "(\<forall>x\<in>A. \<forall>y\<in>A. x\<noteq>y \<longrightarrow> f x \<noteq> f y) \<Longrightarrow> inj_on f A"
   using inj_on_def by blast
 
+lemma "bij_betw f A B \<Longrightarrow> bij_betw f A' B' \<Longrightarrow> A = A' \<Longrightarrow> B = B'" 
+   by (simp add: bij_betw_def) 
+
+lemma assumes  "x\<notin>F" "m_1\<in>allmaps F D" "m_2\<in>allmaps F D" "m_1(x \<mapsto> d_1) = m_2(x \<mapsto> d_2)"
+  shows aux392: "m_1 = m_2"
+    by (metis (mono_tags, lifting) allmaps_def assms domIff fun_upd_triv fun_upd_upd mem_Collect_eq) 
+ 
+
 lemma assumes "x\<notin>F"
-  shows "bij_betw (\<lambda>(m,d). m(x:=Some d)) ((allmaps F D) \<times> D) (allmaps (insert x F) D)"
+  shows bij_allmaps: "bij_betw (\<lambda>(m,d). m(x:=Some d)) ((allmaps F D) \<times> D) (allmaps (insert x F) D)"
   apply(rule bij_betw_imageI)
    apply(simp add: inj_on_def)
-proof -
-  
+  apply (meson assms aux392 map_upd_eqD1)
+  apply rule
+  using upd_in_all apply fastforce
+proof
+  fix m
+  assume a1: "m \<in> allmaps (insert x F) D"
+  let ?n = "m(x:=None)"
+  have "dom ?n = F"
+    by (metis (mono_tags, lifting) Diff_insert_absorb a1 allmaps_def assms dom_fun_upd mem_Collect_eq)
+  have "ran m \<subseteq> D" using allmaps_def a1 by fastforce
+  then have "ran ?n \<subseteq> D"
+    by (metis ranI ran_restrictD restrict_complement_singleton_eq subsetCE subsetI) 
+  then have "?n \<in> allmaps F D"
+    using \<open>dom (m(x := None)) = F\<close> allmaps_def by blast
+  obtain d where o1: "m x = Some d"
+    by (metis (mono_tags, lifting) a1 allmaps_def domD insertI1 mem_Collect_eq)
+  then have "d\<in>D"
+    by (meson \<open>ran m \<subseteq> D\<close> ranI subsetCE)
+  moreover have "(\<lambda>(m, d). m(x \<mapsto> d)) (?n,d) = m" using o1 by auto
+  ultimately show "m \<in> (\<lambda>(m, d). m(x \<mapsto> d)) ` (allmaps F D \<times> D)"
+    using \<open>m(x := None) \<in> allmaps F D\<close> image_iff by fastforce
+qed
+
 
 lemma assumes "finite D"
     shows "finite C \<Longrightarrow> card (allmaps C D) = (card D) ^ (card C)"
@@ -74,10 +113,11 @@ next
     by auto
   from this c1 have "card D ^ card (insert x F) = card (allmaps F D) * card D"
     by simp
-  have "\<forall>m\<in>(allmaps F D). \<forall>d\<in>D. m(x:=Some d)\<in>(allmaps (insert x F) D)"
-    using upd_in_all by auto
-  moreover have "\<forall>m\<in>(allmaps (insert x F) D). \<exists>n\<in>(allmaps F D). \<exists>d\<in>D. m = n(x:= Some d)"
-  then show ?case sorry
+  also have "... = card (allmaps F D \<times> D)"
+    by (simp add: card_cartesian_product)
+  also have "... = card (allmaps (insert x F) D)" 
+    using bij_allmaps[of x F D] bij_betw_same_card c1(2) by auto
+  finally show ?case by auto
 qed
 
 
@@ -157,10 +197,37 @@ proof -
     using VCDim_def f1 by auto
 qed
 
+lemma "\<exists>f. bij_betw f Y {True, False}"
+proof -
+  obtain y1 where "y1 \<in> Y" using cardY by fastforce
+  obtain y2 where "y2 \<in> Y" "y2 \<noteq> y1" using cardY
+    by (metis card_2_exists)
+  then obtain f where "f y1 = True" "f y2 = False" by auto
+  have "bij_betw f Y {True, False}"
+    apply (rule bij_betwI')
+    apply (metis \<open>f y1 = True\<close> \<open>f y2 = False\<close> \<open>y1 \<in> Y\<close> \<open>y2 \<in> Y\<close> cardY card_2_exists)
+    apply simp
+    using \<open>f y1 = True\<close> \<open>f y2 = False\<close> \<open>y1 \<in> Y\<close> \<open>y2 \<in> Y\<close> by blast
+  then show ?thesis by auto
+qed
+    
+lemma aux394: "m\<in> restrictH H' C Y \<Longrightarrow> \<exists>h. h\<in>H' \<and> m \<subseteq>\<^sub>m h"
+  by (simp add: Bex_def_raw restrictH_def) 
+
+
+lemma card_some_y: "card (Some ` Y) = 2"
+proof -
+  have "bij_betw Some Y (Some ` Y)"
+    by (simp add: bij_betw_imageI)
+  then show ?thesis
+    using bij_betw_same_card cardY by fastforce
+qed
+
+
 (*Equation 6.3*)
 lemma eq63: "finite C \<Longrightarrow> card (restrictH H_map C Y) \<le> card ({B. B\<subseteq>C \<and> shatters H_map B Y})"
-proof (induct rule: finite.induct)
-  case emptyI
+proof (induct rule: finite_induct)
+  case empty
   obtain f::"('a \<Rightarrow> 'b option)" where "dom f = {}" by simp
   then have "allmaps {} Y = {f}" using allmaps_e by auto
   then have "card (restrictH H_map {} Y) = 1" using empty_shatted shatters_def
@@ -168,9 +235,263 @@ proof (induct rule: finite.induct)
   moreover have "{B. B\<subseteq>{} \<and> shatters H_map B Y} = {{}}" using empty_shatted by blast 
   ultimately show ?case by auto
 next
-  case (insertI A a)
+  case c1: (insert x F)
+  let ?H' = "{h\<in>H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)}"
+
+
+(*  have "\<forall>B\<subseteq>F. bij_betw (\<lambda>(m,d). m(x:=Some d)) ((restrictH ?H' B Y) \<times> Y) (restrictH ?H' (insert x B) Y)"
+  let ?H'' = "{h\<in>H_map. \<exists>B\<subseteq>F. bij_betw (\<lambda>(m,d). m(x:=Some d)) ((restrictH H_map B Y) \<times> Y) (restrictH H_map (insert x B) Y)}"
+  let ?H' = "{h\<in>H_map. ((\<lambda>d. h(x:=Some d)) ` Y) \<subseteq> H_map}" *)
+  let ?Ha = "H_map - ?H'"
+  have "?Ha = {h\<in>H_map. \<forall>h'\<in>H_map. (\<forall>a\<in>F. h' a = h a) \<longrightarrow> h' x =  h x}" by auto
+  then have s1: "\<forall>h\<in>?Ha. \<forall>h'\<in>?Ha. (\<forall>a\<in>F. h' a = h a) \<longrightarrow> h' x =  h x" by auto
+  have "bij_betw (\<lambda>m. m(x:=None)) (restrictH ?Ha (insert x F) Y) (restrictH ?Ha F Y)"
+    apply(rule bij_betwI')
+  proof -
+    fix m1 m2
+    assume a1: "m1\<in>(restrictH ?Ha (insert x F) Y)" "m2\<in>(restrictH ?Ha (insert x F) Y)"
+    then obtain h1 where o1: "h1\<in>?Ha" "m1 \<subseteq>\<^sub>m h1" using restrictH_def by blast
+    obtain h2 where o2: "h2\<in>?Ha" "m2 \<subseteq>\<^sub>m h2" using restrictH_def a1 by blast
+    show "(m1(x := None) = m2(x := None)) = (m1 = m2)"
+    proof
+    assume a2: "m1(x := None) = m2(x := None)"
+    then have "(\<forall>a\<in>F. h1 a = h2 a)"
+    proof -
+      { fix aa :: 'a
+        have "\<forall>a. m2 a \<noteq> None \<or> a \<notin> insert x F"
+          by (meson a1(2) hx_none)
+        then have "aa \<notin> F \<or> h1 aa = h2 aa"
+          by (metis (no_types) \<open>m1 \<subseteq>\<^sub>m h1\<close> \<open>m1(x := None) = m2(x := None)\<close> \<open>m2 \<subseteq>\<^sub>m h2\<close> c1(2) contra_subsetD domIff fun_upd_apply map_le_def subset_insertI) }
+      then show ?thesis
+        by blast
+    qed
+    then have "h1 x = h2 x" using s1 o1(1) o2(1) by blast
+    then have "m1 x = m2 x"
+      by (metis (no_types, lifting) a1(1) a1(2) domIff hx_none insertI1 map_le_def o1(2) o2(2)) 
+    then show "m1 = m2" using a2
+      by (metis fun_upd_triv fun_upd_upd)
+  next
+    show "m1 = m2 \<Longrightarrow> m1(x := None) = m2(x := None)"
+      by simp
+  qed
+next
+  fix m1
+  assume a1: "m1\<in>(restrictH ?Ha (insert x F) Y)"
+  then have s1: "dom (m1(x := None)) = F"
+    by (simp add: allmaps_def c1.hyps(2) restrictH_def)
+  have "ran m1 \<subseteq> Y" using a1
+    by (simp add: allmaps_def restrictH_def)
+  then have "ran (m1(x := None)) \<subseteq> Y"
+    by (metis ranI ran_restrictD restrict_complement_singleton_eq subset_eq) 
+  then have s2: "(m1(x := None))\<in>allmaps F Y" using s1 by (simp add: allmaps_def)
+  obtain h1 where o1: "h1\<in>?Ha" "m1 \<subseteq>\<^sub>m h1" using restrictH_def a1 by blast
+  then have "(m1(x := None)) \<subseteq>\<^sub>m h1"
+    by (meson map_le_trans upd_None_map_le)
+  then show "(m1(x := None))\<in>(restrictH ?Ha F Y)"
+    by (metis (mono_tags, lifting) mem_Collect_eq o1(1) restrictH_def s2)
+next
+  fix m2
+  assume a1: "m2\<in>(restrictH ?Ha F Y)"
+  obtain h2 where o1: "h2\<in>?Ha" "m2 \<subseteq>\<^sub>m h2" using restrictH_def a1 by blast
+  let ?m1 = "m2(x := h2 x)"
+  have "?m1 \<subseteq>\<^sub>m h2"
+    by (metis fun_upd_triv map_le_upd o1(2))
+  have "?m1 \<in> allmaps (insert x F) Y"
+    by (smt DiffE UNIV_I a1 contra_subsetD domD domh mem_Collect_eq o1(1) ranI ranh restrictH_def upd_in_all)
+  then have "?m1 \<in> (restrictH ?Ha (insert x F) Y)"
+    by (metis (mono_tags, lifting) \<open>m2(x := h2 x) \<subseteq>\<^sub>m h2\<close> mem_Collect_eq o1(1) restrictH_def)
+  then show "\<exists>xa\<in>(restrictH ?Ha (insert x F) Y). m2 = xa(x := None)"
+    by (metis (mono_tags, lifting) a1 allmaps_def c1.hyps(2) domIff fun_upd_triv fun_upd_upd mem_Collect_eq restrictH_def) 
+qed
+
+  have "bij_betw (\<lambda>(m, y). m(x:=Some y)) (restrictH ?H' F Y \<times> Y) (restrictH ?H' (insert x F) Y)"
+    apply(rule bij_betwI')
+  proof -
+      have "\<And>m1 m2 y1 y2. (m1, y1) \<in> restrictH ?H' F Y \<times> Y \<Longrightarrow> (m2, y2) \<in> restrictH ?H' F Y \<times> Y
+            \<Longrightarrow> (m1(x \<mapsto> y1) = m2(x \<mapsto> y2)) = ((m1,y1) = (m2,y2))"
+      proof -
+        fix m1 m2 y1 y2
+        assume a1: "(m1, y1) \<in> restrictH ?H' F Y \<times> Y" "(m2, y2) \<in> restrictH ?H' F Y \<times> Y"
+        have "m1 \<in> allmaps F Y"
+          using a1(1) restrictH_def by fastforce 
+        then have "m1 x = None"
+          using allmaps_def c1.hyps(2) by fastforce 
+        have "m2 \<in> allmaps F Y"
+          using a1(2) restrictH_def by fastforce 
+        then have "m2 x = None"
+          using allmaps_def c1.hyps(2) by fastforce
+        show "(m1(x \<mapsto> y1) = m2(x \<mapsto> y2)) = ((m1,y1) = (m2,y2))"
+        proof
+          assume a2: "m1(x \<mapsto> y1) = m2(x \<mapsto> y2)"
+          then have "m1 = m2"
+            by (meson \<open>m1 \<in> allmaps F Y\<close> \<open>m2 \<in> allmaps F Y\<close> aux392 c1.hyps(2))
+          then show "((m1,y1) = (m2,y2))"
+            using a2 map_upd_eqD1 by fastforce
+        next
+          assume "(m1, y1) = (m2, y2)"
+          then show "m1(x \<mapsto> y1) = m2(x \<mapsto> y2)"
+            by blast
+        qed
+      qed
+    then show "\<And>xa y.
+       xa \<in> restrictH {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} F Y \<times> Y \<Longrightarrow>
+       y \<in> restrictH {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} F Y \<times> Y \<Longrightarrow>
+       ((case xa of (m, y) \<Rightarrow> m(x \<mapsto> y)) = (case y of (m, y) \<Rightarrow> m(x \<mapsto> y))) = (xa = y)"
+      by auto
+  next
+    have "\<And>m1 y1. (m1, y1) \<in> restrictH ?H' F Y \<times> Y \<Longrightarrow> m1(x \<mapsto> y1) \<in> (restrictH ?H' (insert x F) Y)"
+    proof -
+     fix m1 y1
+     assume a1: "(m1, y1) \<in> restrictH ?H' F Y \<times> Y"
+     let ?m2 = "m1(x \<mapsto> y1)"
+     have "m1 \<in> allmaps F Y"
+       using a1 restrictH_def by fastforce
+     then have "?m2 \<in> allmaps (insert x F) Y" using allmaps_def a1 upd_in_all by fastforce
+     obtain h1 where o1:"h1\<in>?H'" "m1 \<subseteq>\<^sub>m h1" using restrictH_def a1 by blast
+     then obtain h2 where o2: "h2 x \<noteq> h1 x \<and> (\<forall>a\<in>F. h2 a = h1 a)" "h2\<in>H_map" by blast
+     then have "h2\<in>?H'" using o1 by force
+     have "m1 \<subseteq>\<^sub>m h2"
+       by (metis (mono_tags, lifting) \<open>m1 \<in> allmaps F Y\<close> allmaps_def map_le_def mem_Collect_eq o1(2) o2(1)) 
+     have "h1\<in>H_map"
+       using o1(1) by blast 
+     have "Some ` Y = {h1 x, h2 x}"
+     proof -
+       have "ran h1 \<subseteq> Y"
+         using o1(1) ranh by auto 
+       then have "h1 x \<in> Some ` Y"
+         by (metis UNIV_I \<open>h1 \<in> H_map\<close> contra_subsetD domD domh imageI ranI)
+       moreover have "h2 x \<in> Some ` Y"
+         by (metis (mono_tags, hide_lams) Hdef \<open>h2 \<in> H_map\<close> image_iff mapify_def)
+       ultimately show ?thesis using card_2_explicit o2(1)
+         by (metis card_some_y)
+     qed
+     have "h1 x = Some y1 \<or> h2 x = Some y1"
+       by (metis (no_types, lifting) Hdef SigmaD2 \<open>Some ` Y = {h1 x, h2 x}\<close> a1 cardY card_2_explicit
+           imageE image_def image_iff insertE insertI1 mapify_def mem_Collect_eq o2(2) singletonD) 
+     show "?m2 \<in> (restrictH ?H' (insert x F) Y)"
+     proof (cases "h1 x = Some y1")
+       case True
+       then show ?thesis
+         by (metis (mono_tags, lifting) \<open>m1(x \<mapsto> y1) \<in> allmaps (insert x F) Y\<close> fun_upd_triv
+             map_le_upd mem_Collect_eq o1(1) o1(2) restrictH_def) 
+     next
+       case False
+       then have "h2 x = Some y1"
+         using \<open>h1 x = Some y1 \<or> h2 x = Some y1\<close> by blast 
+       then show ?thesis
+         by (metis (mono_tags, lifting) \<open>h2 \<in> {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)}\<close>
+             \<open>m1 \<subseteq>\<^sub>m h2\<close> \<open>m1(x \<mapsto> y1) \<in> allmaps (insert x F) Y\<close> fun_upd_triv map_le_upd mem_Collect_eq restrictH_def) 
+     qed
+   qed
+   then show "\<And>xa. xa \<in> restrictH {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} F Y \<times> Y \<Longrightarrow>
+          (case xa of (m, y) \<Rightarrow> m(x \<mapsto> y))
+          \<in> restrictH {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} (insert x F) Y" by auto
+ next
+   fix m2
+   assume a1: "m2 \<in> (restrictH ?H' (insert x F) Y)"
+   then have "m2 \<in> allmaps (insert x F) Y"
+     by (simp add: restrictH_def) 
+   then have "m2 x \<in> Some ` Y" 
+   proof -
+     have "m2 \<in> restrictH {f \<in> H_map. \<exists>fa. fa \<in> H_map \<and> fa x \<noteq> f x \<and> (\<forall>a. a \<in> F \<longrightarrow> fa a = f a)} (insert x F) Y"
+       using \<open>m2 \<in> restrictH {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} (insert x F) Y\<close> by presburger
+     then have "dom m2 = insert x F \<and> ran m2 \<subseteq> Y"
+       by (simp add: allmaps_def restrictH_def)
+     then show ?thesis
+       by (metis (no_types) contra_subsetD domD image_iff insertI1 ranI)
+   qed
+   then obtain y1 where o2: "Some y1 = m2 x" "y1\<in>Y" by auto 
+   let ?m1 = "m2(x:=None)"
+   have s1: "dom ?m1 = F"
+     by (metis (mono_tags, lifting) Diff_insert_absorb \<open>m2 \<in> allmaps (insert x F) Y\<close>
+         allmaps_def c1.hyps(2) dom_fun_upd mem_Collect_eq) 
+  have "ran m2 \<subseteq> Y" using a1
+    by (simp add: allmaps_def restrictH_def)
+  then have "ran ?m1 \<subseteq> Y"
+    by (metis ranI ran_restrictD restrict_complement_singleton_eq subset_eq) 
+  then have s2: "?m1\<in>allmaps F Y" using s1 by (simp add: allmaps_def)
+  obtain h1 where o1: "h1\<in>?H'" "m2 \<subseteq>\<^sub>m h1" using restrictH_def a1 by blast
+  then have "?m1 \<subseteq>\<^sub>m h1"
+    by (meson map_le_trans upd_None_map_le)
+   then have s3: "?m1 \<in> restrictH ?H' F Y"
+     by (metis (mono_tags, lifting) mem_Collect_eq o1(1) restrictH_def s2)
+   then have "m2 = ?m1(x \<mapsto> y1)"
+     by (simp add: o2(1))
+   moreover have "(?m1, y1) \<in> restrictH ?H' F Y \<times> Y"
+     using s3 o2(2) by blast 
+   ultimately show "\<exists>xa\<in>restrictH ?H' F Y \<times> Y. m2 = (case xa of (m, y) \<Rightarrow> m(x \<mapsto> y))"
+     by (metis (mono_tags, lifting) case_prod_conv)
+ qed
+  
+  have "?Ha = {h\<in>H_map. \<not>((\<lambda>d. h(x:=Some d)) ` Y) \<subseteq> H_map}" by auto
+  have ha1:"?Ha = {h\<in>H_map. \<exists>d\<in>Y.  h(x:=Some d) \<notin> H_map}" by auto
+  have ha2:"\<forall>h\<in>?Ha. \<forall>d\<in>Y. Some d \<noteq> h x \<longrightarrow> h(x:=Some d) \<notin> ?Ha"
+    proof
+      fix h
+      assume a1: "h\<in>?Ha"
+      then obtain d where o1: "d\<in>Y" "h(x:=Some d) \<notin> H_map" by auto
+      then have s1: "h(x:=Some d)\<notin>?Ha" by auto
+      then have "Some d \<noteq> h x" using a1 by auto
+      obtain e where o2: "h x = Some e"
+        by (metis (no_types, lifting) DiffE UNIV_I a1 domD domh ha1)
+      then have "e\<in>Y"
+        using a1 ranI ranh by fastforce
+      moreover have "e\<noteq>d" using \<open>Some d \<noteq> h x\<close> o2 by auto 
+      ultimately have "Y = {d,e}" using cardY o1(1) card_2_explicit by fastforce 
+      then show "\<forall>d'\<in>Y. Some d' \<noteq> h x \<longrightarrow> h(x:=Some d') \<notin> ?Ha"
+        using o2 s1 by auto 
+    qed
+  then have "?Ha = {h\<in>H_map. \<forall>d\<in>Y. Some d\<noteq>h x \<longrightarrow> h(x:=Some d) \<notin> H_map}"
+    by (smt Collect_cong cardY card_2_exists fun_upd_upd ha1 map_upd_eqD1 mem_Collect_eq)
+    
+
+  have "bij_betw (\<lambda>m. m(x:=None)) (restrictH ?Ha (insert x F) Y) (restrictH ?Ha F Y)"
+      apply(rule bij_betw_imageI)
+     apply(simp add: inj_on_def)
+     apply rule
+    apply rule
+  proof
+    fix h1 h2
+    assume a1: "h1\<in>(restrictH ?Ha (insert x F) Y)" "h2\<in>(restrictH ?Ha (insert x F) Y)" 
+           "h1(x := None) = h2(x := None)"
+    then obtain h where o1: "h\<in>?Ha" "h1 \<subseteq>\<^sub>m h" using restrictH_def
+        proof -
+          assume a1: "\<And>h. \<lbrakk>h \<in> H_map - {h \<in> H_map. (\<lambda>d. h(x \<mapsto> d)) ` Y \<subseteq> H_map}; h1 \<subseteq>\<^sub>m h\<rbrakk> \<Longrightarrow> thesis"
+          have "h1 \<in> allmaps (insert x F) Y \<and> (\<exists>f. f \<in> H_map - {f \<in> H_map. (\<lambda>b. f(x \<mapsto> b)) ` Y \<subseteq> H_map} \<and> h1 \<subseteq>\<^sub>m f)"
+            using \<open>h1 \<in> restrictH (H_map - {h \<in> H_map. (\<lambda>d. h(x \<mapsto> d)) ` Y \<subseteq> H_map}) (insert x F) Y\<close> restrictH_def by fastforce
+          then show ?thesis
+            using a1 by meson
+        qed
+        then have "\<forall>d\<in>Y. Some d \<noteq> h x \<longrightarrow> h(x:=Some d) \<notin> ?Ha" using ha2 by auto
+        have "h1 x \<noteq> None" using hx_none a1(1) by fastforce
+        then have "h x = h1 x" using o1(2) map_le_def by (metis domIff)
+  have "\<forall>h\<in>?H'. ((\<lambda>d. h(x:=Some d)) ` Y) \<subseteq> ?H'" by auto
+  have "\<forall>B\<subseteq>F. shatters ?H' B Y \<longrightarrow> shatters ?H' (insert x B) Y"
+    apply rule
+    apply rule
+  proof
+    fix B
+    assume "B\<subseteq>F"
+    assume "shatters ?H' B Y"
+    then have s1: "(\<forall>m\<in>(allmaps B Y).\<exists>h\<in>?H'. m \<subseteq>\<^sub>m h)"  by (simp add: alt_shatters)
+    have "(\<forall>m\<in>(allmaps (insert x B) Y).\<exists>h\<in>?H'. m \<subseteq>\<^sub>m h)"
+    proof
+      fix m
+      assume "m\<in>(allmaps (insert x B) Y)" 
+      then obtain n d where o1: "m = (\<lambda>(m,d). m(x:=Some d)) (n, d)" "n\<in> allmaps B Y" "d\<in>Y"
+        using c1(2) bij_allmaps[of x B Y] \<open>B \<subseteq> F\<close> bij_betw_imp_surj_on by blast
+      then obtain h where o2: "h\<in>?H'" "n \<subseteq>\<^sub>m h" using s1 by blast
+      let ?h' = "h(x:=Some d)"
+      have "?h' \<in> ?H'" using o1(3) o2(1) by auto
+      moreover have "m \<subseteq>\<^sub>m ?h'"
+        by (simp add: o1(1) o2(2))
+      ultimately show "\<exists>h\<in>?H'. m \<subseteq>\<^sub>m h" by blast
+    qed
+    then show "shatters ?H' (insert x B) Y" using alt_shatters by blast
+  qed
   then show ?case sorry
 qed
+
 
 
 lemma assumes "VCDim = Some d"
