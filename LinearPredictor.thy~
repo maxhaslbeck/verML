@@ -25,7 +25,7 @@ lemma fixes V::"(movec) set" (* euclidean_space*)
   assumes "dim V < card B" 
           and "B\<subseteq>V"
           and "0 < dim V"
-        shows "\<not> shatters (image mapify (all_linear V)) B {True, False}"
+        shows upper_dim: "\<not> shatters (image mapify (all_linear V)) B {True, False}"
 proof(rule ccontr)
   have fB: "finite B" using assms card_infinite by fastforce
   moreover have "dim B < card B" using assms dimsub
@@ -113,7 +113,7 @@ lemma aux41: "ran m \<subseteq> R \<Longrightarrow> x \<in> dom m \<Longrightarr
 
 
 (*remove unnecessary parts*)
-lemma "shatters (image mapify (all_linear (myroom d))) (mybasis d) {True, False}"
+lemma lower_dim: "shatters (image mapify (all_linear (myroom d))) (mybasis d) {True, False}"
 proof -
   let ?B = "(image (\<lambda>k. vec_lambda (\<lambda>i. if i = k then 1 else 0)) {..<d})"
   have f1: "\<forall>(k::nat). (\<lambda>i. if i = k then 1 else 0) \<in> {f. \<exists>j. \<forall>q>j. f q = 0}"
@@ -220,13 +220,13 @@ proof -
  qed
 
 
-locale linpred = vcd "myroom d" "{True, False}" "all_linear (myroom d)" for d::nat +
+
+locale linpred =
+  fixes d::nat
   assumes dgz: "d>0"
 begin
-lemma "VCDim = Some d" unfolding VCDim_
-end
 
-sublocale linpred \<subseteq> vcd "myroom d" "{True, False}" "all_linear (myroom d)"
+interpretation vcd "myroom d" "{True, False}" "all_linear (myroom d)"
 proof
   show "infinite (myroom d)" using dgz infiniteroom by auto
   show "card {True, False} = 2" by auto
@@ -235,4 +235,40 @@ proof
     using \<open>infinite (myroom d)\<close> all_linear_def by force
 qed
 
-term linpred
+lemma linvcd: "VCDim = Some d" unfolding VCDim_alt
+proof
+  have "mybasis d \<subseteq> myroom d" using roomSpan
+    by (simp add: span_superset) 
+  then show "\<exists>C\<subseteq>myroom d. card C = d \<and> shatters H_map C {True, False}"
+    using lower_dim cardbasis by metis
+  show "\<not> (\<exists>C\<subseteq>myroom d. d < card C \<and> shatters H_map C {True, False})"
+    using upper_dim dim_room
+    by (simp add: dgz)
+qed
+
+
+lemma "0<(m::nat) \<Longrightarrow> growth m \<le> sum (\<lambda>x. m choose x) {0..d}"
+  using lem610 linvcd by auto
+
+end
+
+
+
+(*
+locale flinpred =
+  fixes k::nat
+  assumes dgz: "k>0"
+begin
+
+interpretation linpred k
+  apply standard
+  using dgz by auto
+
+
+
+lemma "0<(m::nat) \<Longrightarrow> growth m \<le> sum (\<lambda>x. m choose x) {0..d}"
+
+
+end *)
+end
+

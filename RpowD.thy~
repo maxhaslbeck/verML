@@ -241,6 +241,10 @@ lemma minner_comm: "minner x y = minner y x"
 lemma anotin: "a\<notin>{q. vec_nth x q \<noteq> 0 \<and> vec_nth y q \<noteq> 0} \<Longrightarrow> (\<lambda>i. inner (vec_nth x i) (vec_nth y i)) a = 0"
   by simp
 
+lemma minner_alt: "finite A \<Longrightarrow> {q. vec_nth x q \<noteq> 0 \<and> vec_nth y q \<noteq> 0} \<subseteq> A
+       \<Longrightarrow> minner x y = sum (\<lambda>i. inner (vec_nth x i) (vec_nth y i)) A"
+  by (metis (no_types, lifting) Collect_cong DiffE anotin minner_def sum.mono_neutral_cong_left)
+    
 
 lemma minner_distrib: "minner (x + y) z = minner x z + minner y z"
 proof -
@@ -481,6 +485,16 @@ qed
 
 end
 *)
+
+lemma le_valid: "(\<lambda>i. if i \<le> (k::nat) then f i else 0) \<in> {f. \<exists>j. \<forall>q>j. f q = 0}"
+  using leD by auto
+  
+lemma lt_valid: "(\<lambda>i. if i < (k::nat) then f i else 0) \<in> {f. \<exists>j. \<forall>q>j. f q = 0}"
+  using not_less_iff_gr_or_eq by auto
+     
+lemma eq_valid: "(\<lambda>i. if i = (k::nat) then f i else 0) \<in> {f. \<exists>j. \<forall>q>j. f q = 0}"
+  by auto
+
 
 lemma exmovec: "\<exists>v::movec. (\<forall>k<d. vec_nth v k = f k) \<and> v \<in> {x. \<forall>q\<ge>d. vec_nth x q = 0}"
 proof -

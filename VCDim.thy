@@ -137,16 +137,17 @@ lemma ranh: "\<forall>h\<in>H_map. ran h \<subseteq> Y" using Hdef mapify_def
 lemma domh: "\<forall>h\<in>H_map. dom h = UNIV"
   by (simp add: mapify_def) 
 
+lemma nnHmap: "H_map \<noteq> {}" using nnH by auto
 
-
-lemma empty_shatted: "shatters H_map {} D"
+lemma assumes "H'\<noteq>{}" "H'\<subseteq>H_map"
+    shows empty_shatted: "shatters H' {} D"
   unfolding shatters_def restrictH_def
 proof -
-  obtain h where "h\<in>H_map" using nnH by auto
+  obtain h where "h\<in>H'" using assms by auto
   moreover obtain f::"('a \<Rightarrow> 'b option)" where s1: "dom f = {}" by auto
   moreover from this have "f \<subseteq>\<^sub>m h" by auto
   moreover have "allmaps {} D = {f}" using allmaps_e s1(1) by blast 
-  ultimately show "allmaps {} D = {m \<in> allmaps {} D. Bex H_map ((\<subseteq>\<^sub>m) m)}"
+  ultimately show "allmaps {} D = {m \<in> allmaps {} D. Bex H' ((\<subseteq>\<^sub>m) m)}"
     by auto
 qed
 
@@ -169,7 +170,8 @@ proof -
   moreover have s2: "finite {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}" using VCDim_def assms
     by (metis (mono_tags, lifting) Collect_cong option.simps(3))
    moreover have "{m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y} \<noteq> {}"
-    using empty_shatted by fastforce
+    using empty_shatted nnHmap
+    by (metis (mono_tags, lifting) empty_iff empty_subsetI mem_Collect_eq subset_refl)
   ultimately show "\<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y" using Max_in by auto
   show "\<not>(\<exists>C\<subseteq>X. card C > m \<and> shatters H_map C Y)"
     by (metis (mono_tags, lifting) Max_ge leD mem_Collect_eq s1 s2)
@@ -224,28 +226,43 @@ proof -
 qed
 
 
+lemma over_shatter: "H1\<subseteq>H2 \<Longrightarrow> shatters H1 C D \<Longrightarrow> shatters H2 C D"
+  by (meson alt_shatters subsetCE)
+
 (*Equation 6.3*)
-lemma eq63: "finite C \<Longrightarrow> card (restrictH H_map C Y) \<le> card ({B. B\<subseteq>C \<and> shatters H_map B Y})"
+lemma eq63: "finite C \<Longrightarrow> \<forall>H'\<subseteq>H_map. card (restrictH H' C Y) \<le> card ({B. B\<subseteq>C \<and> shatters H' B Y})"
 proof (induct rule: finite_induct)
   case empty
+  show ?case
+  proof(safe)
+    fix H'
+    assume a1: "H'\<subseteq>H_map"
   obtain f::"('a \<Rightarrow> 'b option)" where "dom f = {}" by simp
   then have "allmaps {} Y = {f}" using allmaps_e by auto
-  then have "card (restrictH H_map {} Y) = 1" using empty_shatted shatters_def
-    by (metis is_singletonI is_singleton_altdef)
-  moreover have "{B. B\<subseteq>{} \<and> shatters H_map B Y} = {{}}" using empty_shatted by blast 
-  ultimately show ?case by auto
+  then have "H'\<noteq>{} \<longrightarrow> card (restrictH H' {} Y) = 1" using empty_shatted shatters_def
+      is_singletonI is_singleton_altdef a1 by metis    
+  moreover have "H'\<noteq>{} \<longrightarrow> {B. B\<subseteq>{} \<and> shatters H' B Y} = {{}}" using empty_shatted a1 by blast 
+  ultimately show "card (restrictH H' {} Y) \<le> card {B. B \<subseteq> {} \<and> shatters H' B Y}"
+    apply (cases "H' = {}")
+    by (auto simp: restrictH_def)
+qed
 next
   case c1: (insert x F)
-  let ?H' = "{h\<in>H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)}"
+  show ?case
+    apply rule
+  proof
+  fix Hc
+  assume a100: "Hc\<subseteq>H_map"
+  let ?H' = "{h\<in>Hc. \<exists>h'\<in>Hc. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)}"
 
 
 (*  have "\<forall>B\<subseteq>F. bij_betw (\<lambda>(m,d). m(x:=Some d)) ((restrictH ?H' B Y) \<times> Y) (restrictH ?H' (insert x B) Y)"
-  let ?H'' = "{h\<in>H_map. \<exists>B\<subseteq>F. bij_betw (\<lambda>(m,d). m(x:=Some d)) ((restrictH H_map B Y) \<times> Y) (restrictH H_map (insert x B) Y)}"
-  let ?H' = "{h\<in>H_map. ((\<lambda>d. h(x:=Some d)) ` Y) \<subseteq> H_map}" *)
-  let ?Ha = "H_map - ?H'"
-  have "?Ha = {h\<in>H_map. \<forall>h'\<in>H_map. (\<forall>a\<in>F. h' a = h a) \<longrightarrow> h' x =  h x}" by auto
+  let ?H'' = "{h\<in>Hc. \<exists>B\<subseteq>F. bij_betw (\<lambda>(m,d). m(x:=Some d)) ((restrictH Hc B Y) \<times> Y) (restrictH Hc (insert x B) Y)}"
+  let ?H' = "{h\<in>Hc. ((\<lambda>d. h(x:=Some d)) ` Y) \<subseteq> Hc}" *)
+  let ?Ha = "Hc - ?H'"
+  have "?Ha = {h\<in>Hc. \<forall>h'\<in>Hc. (\<forall>a\<in>F. h' a = h a) \<longrightarrow> h' x =  h x}" by auto
   then have s1: "\<forall>h\<in>?Ha. \<forall>h'\<in>?Ha. (\<forall>a\<in>F. h' a = h a) \<longrightarrow> h' x =  h x" by auto
-  have "bij_betw (\<lambda>m. m(x:=None)) (restrictH ?Ha (insert x F) Y) (restrictH ?Ha F Y)"
+  have s10: "bij_betw (\<lambda>m. m(x:=None)) (restrictH ?Ha (insert x F) Y) (restrictH ?Ha F Y)"
     apply(rule bij_betwI')
   proof -
     fix m1 m2
@@ -297,7 +314,24 @@ next
   have "?m1 \<subseteq>\<^sub>m h2"
     by (metis fun_upd_triv map_le_upd o1(2))
   have "?m1 \<in> allmaps (insert x F) Y"
-    by (smt DiffE UNIV_I a1 contra_subsetD domD domh mem_Collect_eq o1(1) ranI ranh restrictH_def upd_in_all)
+  proof -
+    have "h2 x \<noteq> None"
+      by (metis (no_types, lifting) DiffE UNIV_I \<open>Hc \<subseteq> H_map\<close> domIff domh o1(1) subsetCE)
+    then have "dom ?m1 = insert x F" using a1 
+      by (simp add: \<open>h2 x \<noteq> None\<close> allmaps_def restrictH_def)
+    obtain y1 where "h2 x = Some y1" "y1\<in>Y"
+      by (metis (no_types, lifting) DiffE \<open>Hc \<subseteq> H_map\<close> \<open>h2 x \<noteq> None\<close> domD domIff o1(1) ranI ranh subsetCE) 
+    (*have "ran h2 \<subseteq> Y"
+      by (meson DiffE \<open>Hc \<subseteq> H_map\<close> o1(1) ranh subsetCE)
+    then have "h2 x \<in> Some ` Y"
+      using \<open>h2 x \<noteq> None\<close> ranI by fastforce *)
+    moreover have "ran m2 \<subseteq> Y" using o1
+      by (metis (mono_tags, lifting) a1 allmaps_def mem_Collect_eq restrictH_def)
+    ultimately have "ran ?m1 \<subseteq> Y"
+      by (metis (full_types) contra_subsetD domIff fun_upd_triv insertE map_le_def o1(2) ran_map_upd subsetI) 
+    then show ?thesis
+      using \<open>dom (m2(x := h2 x)) = insert x F\<close> allmaps_def by blast 
+  qed
   then have "?m1 \<in> (restrictH ?Ha (insert x F) Y)"
     by (metis (mono_tags, lifting) \<open>m2(x := h2 x) \<subseteq>\<^sub>m h2\<close> mem_Collect_eq o1(1) restrictH_def)
   then show "\<exists>xa\<in>(restrictH ?Ha (insert x F) Y). m2 = xa(x := None)"
@@ -334,8 +368,8 @@ qed
         qed
       qed
     then show "\<And>xa y.
-       xa \<in> restrictH {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} F Y \<times> Y \<Longrightarrow>
-       y \<in> restrictH {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} F Y \<times> Y \<Longrightarrow>
+       xa \<in> restrictH {h \<in> Hc. \<exists>h'\<in>Hc. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} F Y \<times> Y \<Longrightarrow>
+       y \<in> restrictH {h \<in> Hc. \<exists>h'\<in>Hc. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} F Y \<times> Y \<Longrightarrow>
        ((case xa of (m, y) \<Rightarrow> m(x \<mapsto> y)) = (case y of (m, y) \<Rightarrow> m(x \<mapsto> y))) = (xa = y)"
       by auto
   next
@@ -348,16 +382,18 @@ qed
        using a1 restrictH_def by fastforce
      then have "?m2 \<in> allmaps (insert x F) Y" using allmaps_def a1 upd_in_all by fastforce
      obtain h1 where o1:"h1\<in>?H'" "m1 \<subseteq>\<^sub>m h1" using restrictH_def a1 by blast
-     then obtain h2 where o2: "h2 x \<noteq> h1 x \<and> (\<forall>a\<in>F. h2 a = h1 a)" "h2\<in>H_map" by blast
+     then obtain h2 where o2: "h2 x \<noteq> h1 x \<and> (\<forall>a\<in>F. h2 a = h1 a)" "h2\<in>Hc" by blast
      then have "h2\<in>?H'" using o1 by force
      have "m1 \<subseteq>\<^sub>m h2"
        by (metis (mono_tags, lifting) \<open>m1 \<in> allmaps F Y\<close> allmaps_def map_le_def mem_Collect_eq o1(2) o2(1)) 
-     have "h1\<in>H_map"
-       using o1(1) by blast 
+     have "h1\<in>Hc"
+       using o1(1) by blast
+     then have "h1\<in>H_map" using \<open>Hc \<subseteq> H_map\<close> by blast
+     have "h2\<in>H_map" using \<open>Hc \<subseteq> H_map\<close> o2(2) by blast
      have "Some ` Y = {h1 x, h2 x}"
      proof -
        have "ran h1 \<subseteq> Y"
-         using o1(1) ranh by auto 
+         using \<open>Hc \<subseteq> H_map\<close> \<open>h1 \<in> Hc\<close> ranh by blast 
        then have "h1 x \<in> Some ` Y"
          by (metis UNIV_I \<open>h1 \<in> H_map\<close> contra_subsetD domD domh imageI ranI)
        moreover have "h2 x \<in> Some ` Y"
@@ -379,13 +415,13 @@ qed
        then have "h2 x = Some y1"
          using \<open>h1 x = Some y1 \<or> h2 x = Some y1\<close> by blast 
        then show ?thesis
-         by (metis (mono_tags, lifting) \<open>h2 \<in> {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)}\<close>
+         by (metis (mono_tags, lifting) \<open>h2 \<in> {h \<in> Hc. \<exists>h'\<in>Hc. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)}\<close>
              \<open>m1 \<subseteq>\<^sub>m h2\<close> \<open>m1(x \<mapsto> y1) \<in> allmaps (insert x F) Y\<close> fun_upd_triv map_le_upd mem_Collect_eq restrictH_def) 
      qed
    qed
-   then show "\<And>xa. xa \<in> restrictH {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} F Y \<times> Y \<Longrightarrow>
+   then show "\<And>xa. xa \<in> restrictH {h \<in> Hc. \<exists>h'\<in>Hc. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} F Y \<times> Y \<Longrightarrow>
           (case xa of (m, y) \<Rightarrow> m(x \<mapsto> y))
-          \<in> restrictH {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} (insert x F) Y" by auto
+          \<in> restrictH {h \<in> Hc. \<exists>h'\<in>Hc. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} (insert x F) Y" by auto
  next
    fix m2
    assume a1: "m2 \<in> (restrictH ?H' (insert x F) Y)"
@@ -393,8 +429,8 @@ qed
      by (simp add: restrictH_def) 
    then have "m2 x \<in> Some ` Y" 
    proof -
-     have "m2 \<in> restrictH {f \<in> H_map. \<exists>fa. fa \<in> H_map \<and> fa x \<noteq> f x \<and> (\<forall>a. a \<in> F \<longrightarrow> fa a = f a)} (insert x F) Y"
-       using \<open>m2 \<in> restrictH {h \<in> H_map. \<exists>h'\<in>H_map. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} (insert x F) Y\<close> by presburger
+     have "m2 \<in> restrictH {f \<in> Hc. \<exists>fa. fa \<in> Hc \<and> fa x \<noteq> f x \<and> (\<forall>a. a \<in> F \<longrightarrow> fa a = f a)} (insert x F) Y"
+       using \<open>m2 \<in> restrictH {h \<in> Hc. \<exists>h'\<in>Hc. h' x \<noteq> h x \<and> (\<forall>a\<in>F. h' a = h a)} (insert x F) Y\<close> by presburger
      then have "dom m2 = insert x F \<and> ran m2 \<subseteq> Y"
        by (simp add: allmaps_def restrictH_def)
      then show ?thesis
@@ -422,14 +458,93 @@ qed
    ultimately show "\<exists>xa\<in>restrictH ?H' F Y \<times> Y. m2 = (case xa of (m, y) \<Rightarrow> m(x \<mapsto> y))"
      by (metis (mono_tags, lifting) case_prod_conv)
  qed
-  
-  have "?Ha = {h\<in>H_map. \<not>((\<lambda>d. h(x:=Some d)) ` Y) \<subseteq> H_map}" by auto
-  have ha1:"?Ha = {h\<in>H_map. \<exists>d\<in>Y.  h(x:=Some d) \<notin> H_map}" by auto
+  then have "card (restrictH ?H' (insert x F) Y) = card (restrictH ?H' F Y \<times> Y)"
+    by (simp add: bij_betw_same_card) 
+  then have s30: "card (restrictH ?H' (insert x F) Y) = 2 * card (restrictH ?H' F Y)"   
+    by (simp add: card_cartesian_product cardY)
+  have s31: "card (restrictH ?Ha (insert x F) Y ) = card (restrictH ?Ha F Y)"
+    using bij_betw_same_card s10 by blast
+  have "?H' \<inter> ?Ha = {}" by auto
+
+   have s20: "finite (insert x F)"
+    by (simp add: c1.hyps(1))
+   have s21: "finite Y" using cardY
+    using card_infinite by fastforce
+
+  have "(restrictH ?H' (insert x F) Y) \<inter> (restrictH ?Ha (insert x F) Y) = {}"
+  proof (rule ccontr)
+    assume "(restrictH ?H' (insert x F) Y) \<inter> (restrictH ?Ha (insert x F) Y) \<noteq> {}"
+    then obtain m where o1: "m \<in> (restrictH ?H' (insert x F) Y)" "m \<in> (restrictH ?Ha (insert x F) Y)"
+      by auto
+    obtain h1 where "h1 \<in> ?H'" "m \<subseteq>\<^sub>m h1" using restrictH_def o1 by blast
+    moreover obtain h2 where "h2 \<in> ?Ha" "m \<subseteq>\<^sub>m h2" using restrictH_def o1 by blast
+    moreover have "\<forall>y\<in>(insert x F). h1 y = h2 y"
+      by (metis (no_types, lifting) \<open>m \<subseteq>\<^sub>m h1\<close> \<open>m \<subseteq>\<^sub>m h2\<close> domIff hx_none map_le_def o1(1)) 
+    moreover have "\<forall>h1\<in>?H'.\<forall>h2\<in>?Ha. \<exists>y\<in>(insert x F). h1 y \<noteq> h2 y"
+      by auto
+    ultimately show False
+      by simp
+  qed
+  moreover have "(restrictH ?H' (insert x F) Y) \<union> (restrictH ?Ha (insert x F) Y) = restrictH Hc (insert x F) Y"
+    apply safe
+    apply (simp add: restrictH_def)
+    apply blast
+    apply (simp add: restrictH_def)
+    apply blast
+    apply (simp add: restrictH_def)
+    apply blast
+    done
+  moreover have "finite (restrictH ?H' (insert x F) Y)" using finiteres
+    using s20 s21 by blast
+  moreover have "finite (restrictH ?Ha (insert x F) Y)" using finiteres
+    using s20 s21 by blast
+  ultimately have s32: "card (restrictH Hc (insert x F) Y) = 
+        card (restrictH ?H' (insert x F) Y) + card (restrictH ?Ha (insert x F) Y)"
+    using card_Un_disjoint by (metis (no_types, lifting))
+
+  have "(restrictH ?H' F Y) \<inter> (restrictH ?Ha F Y) = {}"
+      proof (rule ccontr)
+    assume "(restrictH ?H' F Y) \<inter> (restrictH ?Ha F Y) \<noteq> {}"
+    then obtain m where o1: "m \<in> (restrictH ?H' F Y)" "m \<in> (restrictH ?Ha F Y)"
+      by auto
+    obtain h1 where "h1 \<in> ?H'" "m \<subseteq>\<^sub>m h1" using restrictH_def o1 by blast
+    moreover obtain h2 where o2: "h2 \<in> ?Ha" "m \<subseteq>\<^sub>m h2" using restrictH_def o1 by blast
+    moreover have "\<forall>y\<in>F. h1 y = h2 y"
+      by (metis (no_types, lifting) \<open>m \<subseteq>\<^sub>m h1\<close> \<open>m \<subseteq>\<^sub>m h2\<close> domIff hx_none map_le_def o1(1))
+    moreover have "h1 x \<noteq> h2 x"
+      using calculation(1) calculation(3) calculation(5) by auto
+    ultimately have "h2 \<in> ?H'" by auto
+    from this o2(1) show False by auto
+  qed
+moreover have "(restrictH ?H' F Y) \<union> (restrictH ?Ha F Y) = restrictH Hc F Y"
+    apply safe
+    apply (simp add: restrictH_def)
+    apply blast
+    apply (simp add: restrictH_def)
+    apply blast
+    apply (simp add: restrictH_def)
+    apply blast
+    done
+
+  moreover have "finite (restrictH ?H' F Y)" using finiteres
+    using c1.hyps(1) s21 by blast
+  moreover have "finite (restrictH ?Ha F Y)" using finiteres
+    using c1.hyps(1) s21 by blast
+  ultimately have s33: "card (restrictH Hc F Y) = 
+        card (restrictH ?H' F Y) + card (restrictH ?Ha F Y)"
+    using card_Un_disjoint by (metis (no_types, lifting))
+  from s30 s31 s32 s33 have s60: "card (restrictH Hc (insert x F) Y) = card (restrictH Hc F Y) + card (restrictH ?H' F Y)"
+    by auto
+
+
+(*
+  have "?Ha = {h\<in>Hc. \<not>((\<lambda>d. h(x:=Some d)) ` Y) \<subseteq> Hc}" by auto
+  have ha1:"?Ha = {h\<in>Hc. \<exists>d\<in>Y.  h(x:=Some d) \<notin> Hc}" by auto
   have ha2:"\<forall>h\<in>?Ha. \<forall>d\<in>Y. Some d \<noteq> h x \<longrightarrow> h(x:=Some d) \<notin> ?Ha"
     proof
       fix h
       assume a1: "h\<in>?Ha"
-      then obtain d where o1: "d\<in>Y" "h(x:=Some d) \<notin> H_map" by auto
+      then obtain d where o1: "d\<in>Y" "h(x:=Some d) \<notin> Hc" by auto
       then have s1: "h(x:=Some d)\<notin>?Ha" by auto
       then have "Some d \<noteq> h x" using a1 by auto
       obtain e where o2: "h x = Some e"
@@ -441,7 +556,7 @@ qed
       then show "\<forall>d'\<in>Y. Some d' \<noteq> h x \<longrightarrow> h(x:=Some d') \<notin> ?Ha"
         using o2 s1 by auto 
     qed
-  then have "?Ha = {h\<in>H_map. \<forall>d\<in>Y. Some d\<noteq>h x \<longrightarrow> h(x:=Some d) \<notin> H_map}"
+  then have "?Ha = {h\<in>Hc. \<forall>d\<in>Y. Some d\<noteq>h x \<longrightarrow> h(x:=Some d) \<notin> Hc}"
     by (smt Collect_cong cardY card_2_exists fun_upd_upd ha1 map_upd_eqD1 mem_Collect_eq)
     
 
@@ -456,20 +571,20 @@ qed
            "h1(x := None) = h2(x := None)"
     then obtain h where o1: "h\<in>?Ha" "h1 \<subseteq>\<^sub>m h" using restrictH_def
         proof -
-          assume a1: "\<And>h. \<lbrakk>h \<in> H_map - {h \<in> H_map. (\<lambda>d. h(x \<mapsto> d)) ` Y \<subseteq> H_map}; h1 \<subseteq>\<^sub>m h\<rbrakk> \<Longrightarrow> thesis"
-          have "h1 \<in> allmaps (insert x F) Y \<and> (\<exists>f. f \<in> H_map - {f \<in> H_map. (\<lambda>b. f(x \<mapsto> b)) ` Y \<subseteq> H_map} \<and> h1 \<subseteq>\<^sub>m f)"
-            using \<open>h1 \<in> restrictH (H_map - {h \<in> H_map. (\<lambda>d. h(x \<mapsto> d)) ` Y \<subseteq> H_map}) (insert x F) Y\<close> restrictH_def by fastforce
+          assume a1: "\<And>h. \<lbrakk>h \<in> Hc - {h \<in> Hc. (\<lambda>d. h(x \<mapsto> d)) ` Y \<subseteq> Hc}; h1 \<subseteq>\<^sub>m h\<rbrakk> \<Longrightarrow> thesis"
+          have "h1 \<in> allmaps (insert x F) Y \<and> (\<exists>f. f \<in> Hc - {f \<in> Hc. (\<lambda>b. f(x \<mapsto> b)) ` Y \<subseteq> Hc} \<and> h1 \<subseteq>\<^sub>m f)"
+            using \<open>h1 \<in> restrictH (Hc - {h \<in> Hc. (\<lambda>d. h(x \<mapsto> d)) ` Y \<subseteq> Hc}) (insert x F) Y\<close> restrictH_def by fastforce
           then show ?thesis
             using a1 by meson
         qed
         then have "\<forall>d\<in>Y. Some d \<noteq> h x \<longrightarrow> h(x:=Some d) \<notin> ?Ha" using ha2 by auto
         have "h1 x \<noteq> None" using hx_none a1(1) by fastforce
         then have "h x = h1 x" using o1(2) map_le_def by (metis domIff)
-  have "\<forall>h\<in>?H'. ((\<lambda>d. h(x:=Some d)) ` Y) \<subseteq> ?H'" by auto
-  have "\<forall>B\<subseteq>F. shatters ?H' B Y \<longrightarrow> shatters ?H' (insert x B) Y"
-    apply rule
-    apply rule
-  proof
+  have "\<forall>h\<in>?H'. ((\<lambda>d. h(x:=Some d)) ` Y) \<subseteq> ?H'" by auto *)
+
+
+  have s40: "\<forall>B\<subseteq>F. shatters ?H' B Y \<longrightarrow> shatters ?H' (insert x B) Y"
+  proof(safe)
     fix B
     assume "B\<subseteq>F"
     assume "shatters ?H' B Y"
@@ -481,15 +596,105 @@ qed
       then obtain n d where o1: "m = (\<lambda>(m,d). m(x:=Some d)) (n, d)" "n\<in> allmaps B Y" "d\<in>Y"
         using c1(2) bij_allmaps[of x B Y] \<open>B \<subseteq> F\<close> bij_betw_imp_surj_on by blast
       then obtain h where o2: "h\<in>?H'" "n \<subseteq>\<^sub>m h" using s1 by blast
-      let ?h' = "h(x:=Some d)"
-      have "?h' \<in> ?H'" using o1(3) o2(1) by auto
-      moreover have "m \<subseteq>\<^sub>m ?h'"
-        by (simp add: o1(1) o2(2))
-      ultimately show "\<exists>h\<in>?H'. m \<subseteq>\<^sub>m h" by blast
-    qed
+      then obtain h2 where o3: "h2 x \<noteq> h x \<and> (\<forall>a\<in>F. h2 a = h a)" "h2\<in>Hc" by blast
+      then have s2: "h2 \<in> ?H'"
+        using o2(1) by force
+      have "h \<in> Hc" using o2(1) by auto
+     then have "h\<in>H_map" using \<open>Hc \<subseteq> H_map\<close> by blast
+     have "h2\<in>H_map" using \<open>Hc \<subseteq> H_map\<close> o3(2) by blast
+     have "Some ` Y = {h x, h2 x}"
+     proof -
+       have "ran h \<subseteq> Y"
+         by (simp add: \<open>h \<in> H_map\<close> ranh)
+       then have "h x \<in> Some ` Y"
+         by (metis UNIV_I \<open>h \<in> H_map\<close> contra_subsetD domD domh imageI ranI)
+       moreover have "h2 x \<in> Some ` Y"
+         by (metis (mono_tags, hide_lams) Hdef \<open>h2 \<in> H_map\<close> image_iff mapify_def)
+       ultimately show ?thesis using card_2_explicit o3(1)
+         by (metis card_some_y)
+     qed
+     show "\<exists>h\<in>?H'. m \<subseteq>\<^sub>m h"
+     proof (cases "Some d = h x")
+       case True
+       then show ?thesis
+         by (metis (mono_tags, lifting) case_prod_conv fun_upd_triv map_le_upd o1(1) o2(1) o2(2)) 
+     next
+       case False
+       then have "Some d = h2 x"
+         using \<open>Some ` Y = {h x, h2 x}\<close> o1(3) by blast 
+       then show ?thesis
+         by (metis (mono_tags, lifting) \<open>B \<subseteq> F\<close> allmaps_def case_prod_conv fun_upd_triv map_le_def
+            map_le_upd mem_Collect_eq o1(1) o1(2) o2(2) o3(1) s2 subset_iff) 
+     qed
+   qed
     then show "shatters ?H' (insert x B) Y" using alt_shatters by blast
   qed
-  then show ?case sorry
+
+  have "card (restrictH Hc F Y) \<le> card ({B. B\<subseteq>F \<and> shatters Hc B Y})"
+    using c1.hyps(3) a100 by auto
+
+  moreover have "{B. B\<subseteq>F \<and> shatters Hc B Y} = {B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<notin> B}"
+    using c1.hyps(2) by blast
+
+  ultimately have s61: "card (restrictH Hc F Y) \<le> card ({B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<notin> B})"
+    by auto
+
+  have "?H' \<subseteq> H_map"
+    using a100 by blast
+  then have "card (restrictH ?H' F Y) \<le> card ({B. B\<subseteq>F \<and> shatters ?H' B Y})"
+    using c1.hyps(3) by auto
+
+  moreover have "{B. B\<subseteq>F \<and> shatters ?H' B Y} \<subseteq> {B. B\<subseteq>F \<and> shatters ?H' (insert x B) Y}"
+    using s40 by blast
+  moreover have "finite {B. B\<subseteq>F \<and> shatters ?H' (insert x B) Y}"
+    by (simp add: c1.hyps(1))
+  ultimately have "card (restrictH ?H' F Y) \<le> card ({B. B\<subseteq>F \<and> shatters ?H' (insert x B) Y})"
+    by (meson card_mono le_trans)
+    
+
+  moreover have "bij_betw (\<lambda>B. insert x B) {B. B\<subseteq>F \<and> shatters ?H' (insert x B) Y} {B. B\<subseteq>(insert x F) \<and> shatters ?H' B Y \<and> x \<in> B}"
+   apply(rule bij_betwI')
+    using c1.hyps(2) apply fastforce
+    apply blast
+  proof -
+    fix b
+    assume a1: "b\<in>{B. B\<subseteq>(insert x F) \<and> shatters ?H' B Y \<and> x \<in> B}"
+    then have s1: "b\<subseteq>(insert x F)" "shatters ?H' b Y" "x \<in> b" by auto
+    then obtain b' where "insert x b' = b" "x\<notin>b'" by auto
+    then have "b' \<subseteq> F"
+      using \<open>b \<subseteq> insert x F\<close> by blast
+    then have "b' \<in> {B. B\<subseteq>F \<and> shatters ?H' (insert x B) Y}"
+      using \<open>insert x b' = b\<close> s1(2) by blast
+    then show "\<exists>xa\<in>{B. B \<subseteq> F \<and> shatters ?H' (insert x B) Y}.  b = insert x xa"
+      using \<open>insert x b' = b\<close> by blast
+  qed
+
+  ultimately have s55: "card (restrictH ?H' F Y) \<le> card ({B. B\<subseteq>(insert x F) \<and> shatters ?H' B Y \<and> x \<in> B})"
+    by (simp add: bij_betw_same_card) 
+
+  have "\<forall>B. shatters ?H' B Y \<longrightarrow> shatters Hc B Y"
+    using over_shatter by (metis (mono_tags, lifting) mem_Collect_eq subsetI)
+  then have "{B. B\<subseteq>(insert x F) \<and> shatters ?H' B Y \<and> x \<in> B} \<subseteq> {B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<in> B}"
+    by blast
+   moreover have s70: "finite {B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<in> B}"
+     by (simp add: c1.hyps(1))
+   ultimately have s62: "card (restrictH ?H' F Y) \<le> card ({B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<in> B})"
+     using s55 card_mono by (metis (no_types, lifting) le_trans) 
+
+   from s60 s61 s62 have "card (restrictH Hc (insert x F) Y) \<le> card ({B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<notin> B})
+                                                              + card ({B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<in> B})"
+     by auto
+
+  moreover have "{B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<notin> B} \<union> {B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<in> B}
+      = {B. B \<subseteq> insert x F \<and> shatters Hc B Y}" by auto
+
+  moreover have "{B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<notin> B} \<inter> {B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<in> B}
+      = {}" by auto
+  moreover have "finite {B. B\<subseteq>(insert x F) \<and> shatters Hc B Y \<and> x \<notin> B}"
+     by (simp add: c1.hyps(1))
+   ultimately show "card (restrictH Hc (insert x F) Y) \<le> card {B. B \<subseteq> insert x F \<and> shatters Hc B Y}" 
+     using card_Un_disjoint s70 by (metis (no_types, lifting)) 
+ qed
 qed
 
 
@@ -522,7 +727,7 @@ proof -
   from this f2 have "card {B. B\<subseteq>C \<and> shatters H_map B Y} \<le> sum (\<lambda>x. m choose x) {0..d}"
     by (metis (no_types, lifting) card_mono f1 order_trans)
   then show "card (restrictH H_map C Y) \<le> sum (\<lambda>x. m choose x) {0..d}" using eq63 f3
-    by (metis (mono_tags, lifting) Collect_cong dual_order.strict_trans1 neq_iff not_le_imp_less)
+    by (meson le_trans subsetI) 
 qed
 
 (*Sauers Lemma 6.10*)
@@ -570,191 +775,15 @@ proof -
     by (metis (no_types, lifting) Collect_cong Max_ge choose_one leD neq0_conv zero_less_binomial_iff) 
 qed
 
-(*
-text \<open>Definition of the Prediction Error (2.1). 
-    This is the Isabelle way to write: 
-      @{text "L\<^sub>D\<^sub>,\<^sub>f(h) =  D({S. f S \<noteq> h S})"} \<close>
-definition PredErr :: "'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> real" where
-  "PredErr D f h = measure_pmf.prob D {S. f S \<noteq> h S}" 
-
-lemma PredErr_alt: "PredErr D f h = measure_pmf.prob D {S\<in>set_pmf D.  f S \<noteq> h S}"
-  unfolding PredErr_def apply(rule pmf_prob_cong) by (auto simp add: set_pmf_iff) 
-
-text \<open>Definition of the Training Error (2.2). \<close>
-definition TrainErr :: " ('c \<Rightarrow> ('a * 'b)) \<Rightarrow> 'c set \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> real" where
-  "TrainErr S I h = sum (\<lambda>i. case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0) I / card I"
-
-
-(* Sample D f, takes a sample x of the distribution D and pairs it with its
-    label f x; the result is a distribution on pairs of (x, f x). *)
-definition Sample ::"'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ('a \<times> 'b) pmf" where
-  "Sample D f = do {  a \<leftarrow> D;
-                      return_pmf (a,f a) }"
-
-
-(* Samples n D f, generates a distribution of training sets of length n, which are
-     independently and identically distribution wrt. to D.  *)
-definition Samples :: "nat \<Rightarrow> 'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ((nat \<Rightarrow> 'a \<times> 'b)) pmf" where
-  "Samples n D f = Pi_pmf {0..<n} undefined (\<lambda>_. Sample D f)"
-
-*)
-
- (*measure_pmf.jensens_inequality*)
-
-lemma "AE x in measure_pmf M. X' x \<in> UNIV"
-  by simp
-
-lemma "convex_on UNIV abs"
-unfolding convex_on_def
-  apply (simp)
-  by (metis (mono_tags, hide_lams) abs_mult abs_of_nonneg abs_triangle_ineq add.commute mult.commute)
-
-lemma "integrable (measure_pmf M) abs"
-  oops
-
-(*for lemma A.3*)
-lemma "measure_pmf.expectation p (abs \<circ> f)
-   \<le> infsetsum (\<lambda>i. (a::real) * (Suc i) * (measure_pmf.prob p {x. (abs \<circ> f) x > a * i})) UNIV"
-  oops
-
-lemma "abs (infsetsum f A) \<le> infsetsum (abs \<circ> f) A"
-  oops
-
-
-
-
-lemma "\<forall>x. f x \<in> {-1<..<1::real} \<Longrightarrow> f \<in> borel_measurable borel"
-  oops
-
-
-lemma "\<forall>x. f x \<in> {-1<..<1::real} \<Longrightarrow> simple_function (measure_pmf M) f"
-  oops
-
-lemma "\<forall>x. f x \<in> {-1<..<1} \<Longrightarrow> integrable (measure_pmf M) f"
-  oops
-
-lemma "emeasure (measure_pmf M) {(y::real) \<in> space M. id y \<noteq> 0} \<noteq> \<infinity>"
-  by simp 
-
-lemma "integrable (measure_pmf M) (id::(real\<Rightarrow>real))" 
-  oops
-
-lemma if_summable: "f abs_summable_on A \<Longrightarrow> (\<lambda>x. if P x then f x else 0) abs_summable_on A"
-  by (simp add: abs_summable_on_comparison_test)
-
-lemma "(\<lambda>x. if h x \<noteq> f x then pmf D x else 0) abs_summable_on A"
-  using pmf_abs_summable[of "D"] if_summable[of "pmf D"] by auto
-
-lemma exp_to_prob: "measure_pmf.expectation pr (\<lambda>x. if P x then 1::real else 0)
-     = measure_pmf.prob pr {x. P x}"
-proof -
-  have "measure_pmf.expectation pr (\<lambda>x. if P x then 1::real else 0)
-      = infsetsum (\<lambda>x. if P x then pmf pr x else 0) UNIV"
-    by (smt infsetsum_cong mult_cancel_left2 mult_not_zero pmf_expectation_eq_infsetsum)
-  also have "... = ... - infsetsum (\<lambda>x. if P x then pmf pr x else 0) {x. \<not> P x}"
-    by (smt infsetsum_all_0 mem_Collect_eq)
-  also have "... = infsetsum (\<lambda>x. if P x then pmf pr x else 0) (UNIV - {x. \<not> P x})"
-    by (simp add: if_summable infsetsum_Diff pmf_abs_summable)
-  also have "... = infsetsum (\<lambda>x. if P x then pmf pr x else 0) {x. P x}"
-  proof -
-    have "UNIV - {x. \<not> P x} = {x. P x}"
-      by blast
-    then show ?thesis by auto
-  qed 
-  also have "... = infsetsum (pmf pr) {x. P x}"
-    by (smt infsetsum_cong mem_Collect_eq)
-  finally show ?thesis
-    by (simp add: measure_pmf_conv_infsetsum) 
-qed
-
-lemma "((g:: 'c \<Rightarrow> real) y) * measure_pmf.expectation D f = measure_pmf.expectation D (\<lambda>x. (g y) * f x)"
-   by simp
-
-lemma "measure_pmf.expectation D f - (a::real) = measure_pmf.expectation D (\<lambda>x. f x - a)"
-proof -
-  have "measure_pmf.expectation D f - (a::real) = (\<Sum>\<^sub>ax. pmf D x * f x) - (\<Sum>\<^sub>ax. pmf D x * a)"
-    using pmf_expectation_eq_infsetsum infsetsum_pmf_eq_1
-  proof -
-    have "\<forall>p. integral\<^sup>L (count_space (UNIV::'c set)) (pmf p) = 1"
-      by (metis (no_types) infsetsum_def measure_pmf_UNIV measure_pmf_conv_infsetsum)
-    then show ?thesis
-      by (simp add: infsetsum_def pmf_expectation_eq_infsetsum)
-  qed 
-    by (metis infsetsum_cong measure_pmf_UNIV measure_pmf_conv_infsetsum mult_cancel_right1)
-  have "... = (\<Sum>\<^sub>ax. pmf D x * (f x - a))"
-qed
-
-
-lemma assumes "card I > 0"
-          and "(\<lambda>x. pmf D x * f x) abs_summable_on UNIV"
-  shows stichprobenmittel: "measure_pmf.expectation (Pi_pmf I undefined (\<lambda>_. D)) (\<lambda>S. sum (f \<circ> S) I / card I)
-     = measure_pmf.expectation D f"
-proof -
-(*
-  have "measure_pmf.expectation (Pi_pmf I undefined (\<lambda>_. D)) (\<lambda>S. sum (f \<circ> S) I / card I)
-      = sum (\<lambda>_.(measure_pmf.expectation D f)) I / card I"
-    *)
-  have "i\<notin>I \<Longrightarrow> sum (f \<circ> S) (insert i I) / (card I + 1) 
-      = sum (f \<circ> S) I / (card I + 1) + (f \<circ> S) i / (card I + 1)"
-    by (metis add.commute add_divide_distrib assms card.infinite not_less0 sum.insert_if)
-      
-  have "measure_pmf.expectation (Pi_pmf (insert i I) undefined (\<lambda>_. D)) (\<lambda>S. sum (f \<circ> S) (insert i I) / (card I + 1))
-      = measure_pmf.expectation (Pi_pmf (insert i I) undefined (\<lambda>_. D)) (\<lambda>S. sum (f \<circ> S) I / (card I + 1) + f (S i) / (card I + 1))"
-    
-    sorry
-    show ?thesis sorry
-qed
-
-lemma assumes "card I > 0"
-  shows "measure_pmf.expectation (Pi_pmf I undefined (\<lambda>_. D)) (\<lambda>S. sum (\<lambda>i. if h (S i) \<noteq> f (S i) then 1::real else 0) I / card I)
-     = measure_pmf.expectation D (\<lambda>x. if h x \<noteq> f x then 1::real else 0)"
-  
-
-(*for Jensens*)
-lemma "abs (measure_pmf.expectation p f) \<le> measure_pmf.expectation p (abs \<circ> f)"
-  using pmf_expectation_eq_infsetsum abs_triangle_ineq sorry
 
 (*Theorem 6.11*)
 lemma assumes "set_pmf D \<subseteq> X"
       and "f ` X = Y"
       and "\<delta>\<in>{x.0<x\<and>x<1}"
-    shows aux33: "measure_pmf.prob (Samples m D f) {S. \<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h)
+    shows theorem611: "measure_pmf.prob (Samples m D f) {S. \<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h)
                    \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))} \<ge> 1 - \<delta>"
-proof -
-  (* replace max with sup? *)
-  have "measure_pmf.expectation (Samples m D f) (\<lambda>S. (Max(image (\<lambda>h. abs(PredErr D f h - TrainErr S {0..<m} h)) H)))
-        \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))" sorry
- (* have "\<forall>h\<in>H. measure_pmf.expectation D (\<lambda>x. if h x \<noteq> f x then 1::real else 0) = (\<Sum>\<^sub>ax. pmf D x * (\<lambda>x. if h x \<noteq> f x then 1::real else 0) x)"
-    using pmf_expectation_eq_infsetsum by auto
-  have "\<forall>h\<in>H. (\<Sum>\<^sub>ax. pmf D x * (\<lambda>x. if h x \<noteq> f x then 1::real else 0) x) = (\<Sum>\<^sub>ax. (if h x \<noteq> f x then pmf D x else 0))"
-    by (smt infsetsum_cong mult_cancel_left1 mult_cancel_right1)
-  have "\<forall>h A.(\<lambda>x. if h x \<noteq> f x then pmf D x else 0) abs_summable_on A"
-    using pmf_abs_summable[of "D"] if_summable[of "pmf D"] by auto
-  then have "\<forall>h\<in>H. infsetsum (\<lambda>x. if h x \<noteq> f x then pmf D x else 0) (UNIV - {x. h x = f x})
-        = (\<Sum>\<^sub>ax. (if h x \<noteq> f x then pmf D x else 0)) - infsetsum (\<lambda>x. if h x \<noteq> f x then pmf D x else 0) {x. h x = f x}"
-    by (simp add: infsetsum_Diff)
-  have "\<forall>h\<in>H. infsetsum (\<lambda>x. if h x \<noteq> f x then pmf D x else 0) {x. h x = f x} = 0"
-    by (smt infsetsum_all_0 mem_Collect_eq)
-  have "\<forall>h\<in>H. infsetsum (\<lambda>x. if h x \<noteq> f x then pmf D x else 0) (UNIV - {x. h x = f x}) = infsetsum (pmf D) {x. h x \<noteq> f x}"
-    by (smt Diff_iff UNIV_I infsetsum_Diff infsetsum_all_0 infsetsum_cong infsetsum_def mem_Collect_eq pmf_abs_summable subsetI)
-      
-*)fix h I
-  have "PredErr D f h = measure_pmf.expectation D (\<lambda>x. if h x \<noteq> f x then 1::real else 0)"
-    unfolding PredErr_def using exp_to_prob[of D "(\<lambda>x. h x \<noteq> f x)"]
-    by (smt Collect_cong)
-  moreover assume "card I > 0"
-  moreover have "(\<lambda>x. pmf D x * (\<lambda>x. if h x \<noteq> f x then 1::real else 0) x) abs_summable_on UNIV"
-    using pmf_abs_summable[of "D"] if_summable[of "pmf D"]
-    by (smt abs_summable_on_comparison_test mult_cancel_left1 mult_not_zero zero_less_norm_iff)
-  ultimately have "measure_pmf.expectation (Pi_pmf I undefined (\<lambda>_. D))
-              (\<lambda>S. sum (\<lambda>i. if h (S i) \<noteq> f (S i) then 1::real else 0) I / card I)
-               = PredErr D f h"
-    using stichprobenmittel by auto
-  have "\<forall>h\<in>H. (PredErr D f h) = measure_pmf.expectation (Samples m D f) (\<lambda>S. TrainErr S {0..m} h)"
-    unfolding PredErr_def TrainErr_def Samples_def 
-    sorry
-  show ?thesis sorry
-qed
+  sorry
+
 
 definition representative :: "(nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> nat \<Rightarrow> real \<Rightarrow> 'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
   "representative S m \<epsilon> D f \<longleftrightarrow> (\<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>)"
@@ -922,7 +951,7 @@ proof -
      \<subseteq>{S. (\<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h) \<le> \<epsilon>)}" by auto
   moreover have "measure_pmf.prob (Samples m D f) {S. \<forall>h\<in>H. abs(PredErr D f h - TrainErr S {0..<m} h)
      \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))} \<ge> 1 - \<delta>"
-    using assms aux33 by auto
+    using assms theorem611 by auto
   ultimately show ?thesis using subsetlesspmf representative_def
     by (smt Collect_cong) 
 qed
@@ -943,35 +972,7 @@ proof -
   then show ?thesis using uniform_convergence_def by auto
 qed
 
-(*
 
-definition ERM :: "(nat \<Rightarrow> ('a \<times> 'b)) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b) set" where
-  "ERM S n = {h. is_arg_min (TrainErr S {0..<n}) (\<lambda>s. s\<in>H) h}"
-
-definition ERMe :: "(nat \<Rightarrow> ('a \<times> 'b)) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b)" where
-  "ERMe S n = (SOME h. h\<in> ERM S n)"
-
-lemma ERM_subset: "ERM S n \<subseteq> H" 
-  by (simp add: is_arg_min_linorder subset_iff ERM_def)
-
-lemma TrainErr_nn: "TrainErr S I h \<ge> 0"
-proof -
-  have "0 \<le> (\<Sum>i\<in>I. 0::real)" by simp
-  also have "\<dots> \<le> (\<Sum>i\<in>I. case S i of (x, y) \<Rightarrow> if h x \<noteq> y then 1 else 0)"
-    apply(rule sum_mono) by (simp add: split_beta') 
-  finally show ?thesis 
-    unfolding TrainErr_def by auto
-qed
-
-lemma ERM_0_in: "h' \<in> H \<Longrightarrow> TrainErr S {0..<n} h' = 0 \<Longrightarrow> h' \<in>ERM S n"
-  unfolding ERM_def by (simp add: TrainErr_nn is_arg_min_linorder)
-
-
-definition PAC_learnable :: "((nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b)) \<Rightarrow> bool" where
-  "PAC_learnable L = (\<exists>M::(real \<Rightarrow> real \<Rightarrow> nat). 
-            (\<forall>D f. set_pmf D \<subseteq> X \<longrightarrow> f ` X = Y \<longrightarrow> (\<exists>h'\<in>H. PredErr D f h' = 0) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
-          measure_pmf.prob (Samples m D f) {S. PredErr D f (L S m) \<le> \<epsilon>} \<ge> 1 - \<delta>)))"
-*)
 
 
 lemma assumes "representative S m \<epsilon> D f"

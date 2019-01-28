@@ -1,5 +1,5 @@
 theory LinearPredictor
-  imports VCDim4
+  imports VCDim
 begin
 
 
@@ -198,8 +198,8 @@ proof -
             proof -
             have f1: "\<forall>f fa. (fa \<in> Collect ((\<subseteq>\<^sub>m) f)) = (\<forall>m. (m::movec) \<notin> dom f \<or> (f m::bool option) = fa m)"
             by (simp add: Ball_def_raw map_le_def)
-            have f2: "m \<in> (if (\<lambda>n. movec.vec_lambda (\<lambda>na. if na = n then 1 else 0)) ` {..<d} = {} then {} else {f. dom f = (\<lambda>n. movec.vec_lambda (\<lambda>na. if na = n then 1 else 0)) ` {..<d} \<and> ran f \<subseteq> {True, False}})"
-              using a1 allmaps_def by blast
+            have f2: "m \<in> ( {f. dom f = (\<lambda>n. movec.vec_lambda (\<lambda>na. if na = n then 1 else 0)) ` {..<d} \<and> ran f \<subseteq> {True, False}})"
+              using a1 allmaps_def by (simp add: allmaps_def)(* by blast *)
               have f3: "\<forall>F f. F \<noteq> {} \<or> (f::movec \<Rightarrow> bool option) \<notin> F"
                 by blast
               have "\<forall>M B f. (f \<in> {f. dom f = (M::movec set) \<and> ran f \<subseteq> (B::bool set)}) = (dom f = M \<and> ran f \<subseteq> B)"

@@ -74,6 +74,50 @@ lemma "linear_predictor (vec_lambda (\<lambda>t. (if t<k then w t else 0))) \<in
 
 
 
+lemma "finite M1 \<Longrightarrow> finite M2 \<Longrightarrow> card ((\<lambda>(m1,m2). m1 \<circ>\<^sub>m m2) ` (M1 \<times> M2)) \<le> card M1 * card M2"
+  using card_image_le finite_cartesian_product card_cartesian_product
+  by (metis Sigma_cong)
+
+lemma only_one: "a\<in>A \<Longrightarrow> \<forall>b\<in>A. b = a \<Longrightarrow> card A = 1"
+  by (metis (no_types, hide_lams) One_nat_def card.empty card_Suc_eq empty_iff equalityI insert_iff subsetI) 
+
+lemma "card ({vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }) = card Hb ^ k"
+proof(induct k)
+  case 0
+  obtain f::"('a\<Rightarrow>movec)" where o1: "\<forall>x. f x = 0" by fastforce
+  then have s1: "f\<in>{vm. (\<forall>t<0. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>0. \<forall>x. movec.vec_nth (vm x) t = 0)}"
+    by simp 
+  have "\<forall>g\<in>{vm. (\<forall>t<0. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>0. \<forall>x. movec.vec_nth (vm x) t = 0)}.  \<forall>x. g x = 0"
+    using movec_eq_iff by auto
+  then have "\<forall>g\<in>{vm. (\<forall>t<0. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>0. \<forall>x. movec.vec_nth (vm x) t = 0)}.  g = f"
+    using o1 by auto
+  then have "card {vm. (\<forall>t<0. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>0. \<forall>x. movec.vec_nth (vm x) t = 0)} = 1"
+    using s1 by (simp add: only_one)  
+  then show ?case by auto 
+next
+  case (Suc k)
+  have "{vm. (\<forall>t<Suc k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>Suc k. \<forall>x. movec.vec_nth (vm x) t = 0)} \<subseteq>
+     (\<lambda>(vm, g). (\<lambda>x. upd_movec (vm x) k (g x))) ` ({vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)} \<times> Hb)"
+  proof (auto)
+    fix vm
+    assume a1: "\<forall>t<Suc k. \<exists>m\<in>Hb. \<forall>xa. movec.vec_nth (vm xa) t = m xa"
+            "\<forall>t\<ge>Suc k. \<forall>xa. movec.vec_nth (vm xa) t = 0"
+    let ?kM = "{vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)}"
+    let ?wm = "(\<lambda>x. upd_movec (vm x) k 0)"
+    have "?wm\<in>?kM" sorry
+    obtain h where o1: "h\<in>Hb" "\<forall>x. vec_nth (vm x) k = h x" using a1 by auto
+
+    have "\<exists>wm\<in>{vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)}. \<exists>h\<in>Hb.
+   vm = (\<lambda>(vm, g) x. movec.vec_lambda (\<lambda>k'. if k' = k then g x else movec.vec_nth (vm x) k')) (wm, h)"
+      sorry
+    then show "vm \<in> (\<lambda>(vm, g) x. movec.vec_lambda (\<lambda>k'. if k' = k then g x else movec.vec_nth (vm x) k')) `
+       ({vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)} \<times> Hb)"
+      by auto
+  qed
+  then show ?case sorry
+qed
+
+
 lemma aux857: "(x::real) \<ge> 1 \<Longrightarrow> z \<ge> 0 \<Longrightarrow> x+z \<le> x*(1+z)"
 proof -
   assume "x\<ge>1" "z\<ge>0"

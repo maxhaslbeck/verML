@@ -690,4 +690,8 @@ proof -
     using finite_subset by auto
 qed  
 
+fun upd_movec :: "movec \<Rightarrow> nat \<Rightarrow> real \<Rightarrow> movec" where
+"upd_movec v i r = vec_lambda (\<lambda>k. if k=i then r else vec_nth v k)"
+
+
 end
