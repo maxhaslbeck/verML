@@ -4,17 +4,20 @@ begin
 
 
 locale BOOST =
-  fixes X :: "'a set"
+  fixes C :: "'a set"
     and y :: "'a \<Rightarrow> real"
     and oh :: "('a \<Rightarrow> real) \<Rightarrow> 'a \<Rightarrow> real"
   assumes 
-       nonemptyx: "X \<noteq> {}"
-    and finitex: "finite X"
+       nonemptyx: "C \<noteq> {}"
+    and finitex: "finite C"
     and ytwoclass: "\<forall>x. y x \<in> {-1,1}"
     and ohtwoclass: "\<forall>Ds x. oh Ds x \<in> {-1,1}"
 begin
 
-lemma cardxgtz:"card X > 0"
+
+
+
+lemma cardxgtz:"card C > 0"
   by (simp add: card_gt_0_iff finitex nonemptyx) 
 
 
@@ -24,10 +27,10 @@ and \<epsilon> :: "nat \<Rightarrow> real"
 and w :: "nat \<Rightarrow> real"
 and D :: "nat \<Rightarrow> 'a \<Rightarrow> real" where
     "h t i = oh (\<lambda>x. D t x) i"
-  | "\<epsilon> t = sum (\<lambda>x. D t x) {x\<in>X. h t x \<noteq> y x}"
+  | "\<epsilon> t = sum (\<lambda>x. D t x) {x\<in>C. h t x \<noteq> y x}"
   | "w t = (ln (1/(\<epsilon> t)-1))/2"
-  | "D (Suc t) i = (D t i * exp (-(w t)*(h t i)*(y i))) / (sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) X)"
-  | "D 0 i = 1/(card X)"
+  | "D (Suc t) i = (D t i * exp (-(w t)*(h t i)*(y i))) / (sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) C)"
+  | "D 0 i = 1/(card C)"
 
 lemma ctov: "h t x = y x \<Longrightarrow> h t x * y x = 1" and ctov2: "h t x \<noteq> y x \<Longrightarrow> h t x * y x = -1"
   apply (smt empty_iff insert_iff mult_cancel_left2 mult_minus_right ytwoclass)
@@ -46,7 +49,9 @@ lemma aux35: "movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then h t i e
         = (\<lambda>t. (if t < k then h t i else 0))" using vec_lambda_inverse lt_valid[of k "(\<lambda>t. h t i)"]
     by auto
 
-lemma "(\<lambda>i. f k i > 0)  = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then w t else 0))) 
+definition "hyp k i = (f k i > 0)"
+
+lemma convert_f: "(\<lambda>i. f k i > 0)  = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then w t else 0))) 
                                                  (vec_lambda (\<lambda>t. (if t<k then h t i else 0)))))"
 proof -
   from aux34 have "\<forall>i. {q. movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then w t else 0)) q \<noteq> 0 
@@ -276,37 +281,37 @@ proof -
   then show ?thesis using exp_add by metis
 qed
 
-lemma Dalt: "D t i = (exp (- ((f t i)) * (y i))) / (sum (\<lambda>x. exp (- ((f t x)) *  (y x))) X)"
+lemma Dalt: "D t i = (exp (- ((f t i)) * (y i))) / (sum (\<lambda>x. exp (- ((f t x)) *  (y x))) C)"
 proof (induction t arbitrary: i)
   case 0
   show ?case by (simp add: sum_distrib_left cardxgtz)
 next
   case c1: (Suc t)
   then have "D (Suc t) i
-= ((exp (- f t i * y i) / (\<Sum>x\<in>X. exp (- f t x * y x))) * exp (-(w t)*(h t i)*(y i))) 
-/ (sum (\<lambda>x. (exp (- f t x * y x) / (\<Sum>xx\<in>X. exp (- f t xx * y xx))) * exp (-(w t)*(h t x)*(y x))) X)"
+= ((exp (- f t i * y i) / (\<Sum>x\<in>C. exp (- f t x * y x))) * exp (-(w t)*(h t i)*(y i))) 
+/ (sum (\<lambda>x. (exp (- f t x * y x) / (\<Sum>xx\<in>C. exp (- f t xx * y xx))) * exp (-(w t)*(h t x)*(y x))) C)"
     by auto
   then have s0:"D (Suc t) i
-= ((exp (- f t i * y i) / (\<Sum>x\<in>X. exp (- f t x * y x))) * exp (-(w t)*(h t i)*(y i))) 
-/ ((sum (\<lambda>x. (exp (- f t x * y x)) * exp (-(w t)*(h t x)*(y x))) X)/ (\<Sum>x\<in>X. exp (- f t x * y x)))"
+= ((exp (- f t i * y i) / (\<Sum>x\<in>C. exp (- f t x * y x))) * exp (-(w t)*(h t i)*(y i))) 
+/ ((sum (\<lambda>x. (exp (- f t x * y x)) * exp (-(w t)*(h t x)*(y x))) C)/ (\<Sum>x\<in>C. exp (- f t x * y x)))"
     by (simp add: sum_divide_distrib)
-     have "(\<Sum>x\<in>X. exp (- f t x * y x)) > 0" by (simp add: nonemptyx finitex sum_pos)
+     have "(\<Sum>x\<in>C. exp (- f t x * y x)) > 0" by (simp add: nonemptyx finitex sum_pos)
      from s0 this have s1:"D (Suc t) i
 = ((exp (- f t i * y i)) * exp (-(w t)*(h t i)*(y i))) 
-/ ((sum (\<lambda>x. (exp (- f t x * y x)) * exp (-(w t)*(h t x)*(y x))) X))"
+/ ((sum (\<lambda>x. (exp (- f t x * y x)) * exp (-(w t)*(h t x)*(y x))) C))"
        by simp
      from s1 splitf show ?case by simp
 qed
 
 
-lemma dione: "sum (\<lambda>q. D t q) X = 1"
+lemma dione: "sum (\<lambda>q. D t q) C = 1"
 proof-
-  have "sum (\<lambda>q. D t q) X = sum (\<lambda>q. (exp (- ((f t q)) * (y q))) / (sum (\<lambda>x. exp (- ((f t x)) *  (y x))) X)) X"
+  have "sum (\<lambda>q. D t q) C = sum (\<lambda>q. (exp (- ((f t q)) * (y q))) / (sum (\<lambda>x. exp (- ((f t x)) *  (y x))) C)) C"
     using Dalt by auto
-  also have " sum (\<lambda>q. (exp (- ((f t q)) * (y q))) / (sum (\<lambda>x. exp (- ((f t x)) *  (y x))) X)) X
-           =  sum (\<lambda>q. (exp (- ((f t q)) * (y q)))) X / (sum (\<lambda>x. exp (- ((f t x)) *  (y x))) X)"
+  also have " sum (\<lambda>q. (exp (- ((f t q)) * (y q))) / (sum (\<lambda>x. exp (- ((f t x)) *  (y x))) C)) C
+           =  sum (\<lambda>q. (exp (- ((f t q)) * (y q)))) C / (sum (\<lambda>x. exp (- ((f t x)) *  (y x))) C)"
     using sum_divide_distrib by (metis (mono_tags, lifting) sum.cong)
-  also have "sum (\<lambda>q. (exp (- ((f t q)) * (y q)))) X / (sum (\<lambda>x. exp (- ((f t x)) *  (y x))) X) = 1"
+  also have "sum (\<lambda>q. (exp (- ((f t q)) * (y q)))) C / (sum (\<lambda>x. exp (- ((f t x)) *  (y x))) C) = 1"
   using sum_pos finitex nonemptyx by (smt divide_self exp_gt_zero)
   finally show ?thesis by simp
 qed
@@ -336,7 +341,7 @@ proof -
 qed
 
 
-definition dez:"Z t = 1/(card X) * (sum (\<lambda>x. exp (- (f t x) * (y x))) X)"
+definition dez:"Z t = 1/(card C) * (sum (\<lambda>x. exp (- (f t x) * (y x))) C)"
 
 
 lemma
@@ -345,42 +350,42 @@ lemma
 proof -
   have s3: "\<forall>t. \<epsilon> t > 0" using sum_pos assms(2)
       by (metis (no_types, lifting) BOOST.\<epsilon>.elims BOOST_axioms dgtz sum.empty sum.infinite)
-  have s1: "{x\<in>X. h t x = y x}\<inter>{x\<in>X. h t x \<noteq> y x} = {}"
+  have s1: "{x\<in>C. h t x = y x}\<inter>{x\<in>C. h t x \<noteq> y x} = {}"
     by auto
-  have s2: "{x\<in>X. h t x = y x}\<union>{x\<in>X. h t x \<noteq> y x} = X"
+  have s2: "{x\<in>C. h t x = y x}\<union>{x\<in>C. h t x \<noteq> y x} = C"
     by auto
-  have s10:"(Z (Suc t)) / (Z t) = (sum (\<lambda>x. exp (- (f (Suc t) x) * (y x))) X) / (sum (\<lambda>x. exp (- (f t x) * (y x))) X)"
+  have s10:"(Z (Suc t)) / (Z t) = (sum (\<lambda>x. exp (- (f (Suc t) x) * (y x))) C) / (sum (\<lambda>x. exp (- (f t x) * (y x))) C)"
     by (auto simp: dez cardxgtz)
-  also have "(sum (\<lambda>x. exp (- (f (Suc t) x) * (y x))) X)
-   = (sum (\<lambda>x. exp (- f t x * y x) * exp (-(w ( t))*(h ( t) x)*(y x))) X)"
+  also have "(sum (\<lambda>x. exp (- (f (Suc t) x) * (y x))) C)
+   = (sum (\<lambda>x. exp (- f t x * y x) * exp (-(w ( t))*(h ( t) x)*(y x))) C)"
     using splitf by auto
-  also have "(sum (\<lambda>x. exp (- f t x * y x) * exp (-(w t)*(h t x)*(y x))) X) / (sum (\<lambda>x. exp (- (f t x) * (y x))) X)
-  = (sum (\<lambda>x. exp (- f t x * y x)/ (sum (\<lambda>x. exp (- (f t x) * (y x))) X) * exp (-(w t)*(h t x)*(y x))) X)"
+  also have "(sum (\<lambda>x. exp (- f t x * y x) * exp (-(w t)*(h t x)*(y x))) C) / (sum (\<lambda>x. exp (- (f t x) * (y x))) C)
+  = (sum (\<lambda>x. exp (- f t x * y x)/ (sum (\<lambda>x. exp (- (f t x) * (y x))) C) * exp (-(w t)*(h t x)*(y x))) C)"
     using sum_divide_distrib by simp
-  also have "(sum (\<lambda>x. exp (- f t x * y x)/ (sum (\<lambda>x. exp (- (f t x) * (y x))) X) * exp (-(w t)*(h t x)*(y x))) X)
-      = (sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) X)"
+  also have "(sum (\<lambda>x. exp (- f t x * y x)/ (sum (\<lambda>x. exp (- (f t x) * (y x))) C) * exp (-(w t)*(h t x)*(y x))) C)
+      = (sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) C)"
     using Dalt by simp
-  also have "sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) X
-  = sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) {x\<in>X. h t x = y x}
-  + sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) {x\<in>X. h t x \<noteq> y x}"
+  also have "sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) C
+  = sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) {x\<in>C. h t x = y x}
+  + sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) {x\<in>C. h t x \<noteq> y x}"
     using Groups_Big.comm_monoid_add_class.sum.union_disjoint finitex s1 s2 
     by (metis (no_types, lifting) finite_Un)
-  also have "sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) {x\<in>X. h t x = y x}
-            = sum (\<lambda>x. D t x * exp (-(w t))) {x\<in>X. h t x = y x}"
+  also have "sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) {x\<in>C. h t x = y x}
+            = sum (\<lambda>x. D t x * exp (-(w t))) {x\<in>C. h t x = y x}"
     by (smt add.inverse_inverse empty_iff h.elims insert_iff mem_Collect_eq mult.left_neutral mult_cancel_left2 mult_minus1_right mult_minus_right sum.cong ytwoclass)
-  also have "sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) {x\<in>X. h t x \<noteq> y x}
-            = sum (\<lambda>x. D t x * exp (w t)) {x\<in>X. h t x \<noteq> y x}"
+  also have "sum (\<lambda>x. D t x * exp (-(w t)*(h t x)*(y x))) {x\<in>C. h t x \<noteq> y x}
+            = sum (\<lambda>x. D t x * exp (w t)) {x\<in>C. h t x \<noteq> y x}"
     using ctov2 by (simp add: Groups.mult_ac(1))
-  also have "(\<Sum>x | x \<in> X \<and> h t x = y x. D t x * exp (- w t)) +
-  (\<Sum>x | x \<in> X \<and> h t x \<noteq> y x. D t x * exp (w t))
-        = (\<Sum>x | x \<in> X \<and> h t x = y x. D t x) * exp (- w t) +
-  (\<Sum>x | x \<in> X \<and> h t x \<noteq> y x. D t x) * exp (w t)"
+  also have "(\<Sum>x | x \<in> C \<and> h t x = y x. D t x * exp (- w t)) +
+  (\<Sum>x | x \<in> C \<and> h t x \<noteq> y x. D t x * exp (w t))
+        = (\<Sum>x | x \<in> C \<and> h t x = y x. D t x) * exp (- w t) +
+  (\<Sum>x | x \<in> C \<and> h t x \<noteq> y x. D t x) * exp (w t)"
     by (simp add: sum_distrib_right)
-  also have "(\<Sum>x | x \<in> X \<and> h t x \<noteq> y x. D t x) = \<epsilon> t" by auto
-  also have "(\<Sum>x | x \<in> X \<and> h t x = y x. D t x) = 1 - \<epsilon> t"
+  also have "(\<Sum>x | x \<in> C \<and> h t x \<noteq> y x. D t x) = \<epsilon> t" by auto
+  also have "(\<Sum>x | x \<in> C \<and> h t x = y x. D t x) = 1 - \<epsilon> t"
   proof -
-    have "(\<Sum>x | x \<in> X \<and> h t x = y x. D t x) + (\<Sum>x | x \<in> X \<and> h t x \<noteq> y x. D t x)
-        = sum (D t) X"
+    have "(\<Sum>x | x \<in> C \<and> h t x = y x. D t x) + (\<Sum>x | x \<in> C \<and> h t x \<noteq> y x. D t x)
+        = sum (D t) C"
     using Groups_Big.comm_monoid_add_class.sum.union_disjoint finitex s1 s2 
       by (metis (no_types, lifting) finite_Un)
     then show ?thesis using dione
@@ -404,12 +409,12 @@ proof -
     by (simp add: real_sqrt_divide)
   also have "\<epsilon> t * sqrt((1 - \<epsilon> t)/(\<epsilon> t)) =  sqrt(1 - \<epsilon> t) * sqrt(\<epsilon> t)"
     by (smt linordered_field_class.sign_simps(24) real_div_sqrt real_sqrt_divide s3 times_divide_eq_right)
-  also have s19:"(1 - \<epsilon> t)* (sqrt (\<epsilon> t)/ sqrt(1 - \<epsilon> t)) = sqrt (\<epsilon> t)*sqrt(1 - \<epsilon> t)"
+  also have s19:"(1 - \<epsilon> t)* (sqrt (\<epsilon> t)/ sqrt(1 - \<epsilon> t)) = sqrt (\<epsilon> t)* sqrt(1 - \<epsilon> t)"
     using assms(1,3) by (smt less_divide_eq_1_pos mult.commute real_div_sqrt times_divide_eq_left)
   also have "sqrt (\<epsilon> t) * sqrt (1 - \<epsilon> t) + sqrt (1 - \<epsilon> t) * sqrt (\<epsilon> t)
             = 2 * sqrt((1 - \<epsilon> t) * \<epsilon> t)"
-    by (simp add: real_sqrt_mult_distrib2) 
-  also have s20:"2*sqrt((1 - \<epsilon> t) * \<epsilon> t) \<le> 2*sqrt((1/2-\<gamma>)*(1-(1/2-\<gamma>)))"
+    using divide_cancel_right real_sqrt_mult by auto
+  also have s20:"2* sqrt((1 - \<epsilon> t) * \<epsilon> t) \<le> 2* sqrt((1/2-\<gamma>)*(1-(1/2-\<gamma>)))"
     proof -
       have "((1 - \<epsilon> t) * \<epsilon> t) \<le> ((1/2-\<gamma>)*(1-(1/2-\<gamma>)))"
         using assms(1,3) amono s3 by (smt mult.commute)
@@ -419,7 +424,7 @@ proof -
        by (simp add: algebra_simps power2_eq_square)
       
   also have "2 * sqrt(1/4-\<gamma>^2) = sqrt(4*(1/4-\<gamma>^2))"
-    using real_sqrt_four real_sqrt_mult_distrib2 by presburger 
+    using real_sqrt_four real_sqrt_mult by presburger 
   also have "sqrt(4*(1/4-\<gamma>^2)) = sqrt(1-4*\<gamma>^2)" by auto
   also have "sqrt(1-4*\<gamma>^2) \<le> sqrt(exp(-4*\<gamma>^2))"
   proof -
@@ -436,7 +441,7 @@ qed
 lemma help1:"(b::real) > 0 \<Longrightarrow> a / b \<le> c \<Longrightarrow> a \<le> b * c"
   by (smt mult.commute pos_less_divide_eq)
 
-definition defloss: "loss t = 1/(card X) *(sum (\<lambda>x. (if (f t x * (y x)) > 0 then 0 else 1)) X)"
+definition defloss: "loss t = 1/(card C) *(sum (\<lambda>x. (if (f t x * (y x)) > 0 then 0 else 1)) C)"
 
 
 lemma
@@ -459,10 +464,148 @@ proof -
       by (smt exp_of_nat_mult power_Suc2 semiring_normalization_rules(7)) 
      (* by (smt Groups.mult_ac(2) exp_of_nat2_mult power.simps(2)) This proof worked on other version*)
   qed
-  have help3: "\<forall>n. sum (\<lambda>x. if 0 < f T x * y x then 0 else 1) X \<le> sum (\<lambda>x. exp (- (f T x * y x))) X"
+  have help3: "\<forall>n. sum (\<lambda>x. if 0 < f T x * y x then 0 else 1) C \<le> sum (\<lambda>x. exp (- (f T x * y x))) C"
     by (simp add: sum_mono)
   then have s3: "loss T \<le> Z T" 
     by (simp add: defloss dez divide_right_mono)
   from s2 s3 show ?thesis by auto
 qed
+end
 
+locale allboost =
+  fixes X :: "'a set"
+    and y :: "'a \<Rightarrow> real"
+    and oh :: "('a \<Rightarrow> real) \<Rightarrow> 'a \<Rightarrow> real"
+    and T :: nat
+    and B :: "('a \<Rightarrow> real) set"
+assumes "infinite X"
+    and ytwoclass: "\<forall>x. y x \<in> {-1,1}"
+    and ohtwoclass: "\<forall>Ds. oh Ds \<in> B"
+    and "\<forall>h x. h \<in> B \<longrightarrow> h x \<in> {- 1, 1}"
+    and nonemptyB: "B \<noteq> {}"
+begin
+term BOOST.hyp
+
+definition "H t = (\<lambda>S. BOOST.hyp S y oh t) `{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}"
+definition "H' t = (\<lambda>(S, oh). BOOST.hyp S y oh t) `({S. S\<subseteq>X \<and> S\<noteq>{}}\<times>{oh. \<forall>DS. oh DS \<in> B})"
+
+lemma aux1: "BOOST S y oh \<Longrightarrow> BOOST.hyp S y oh k = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))"
+proof -
+  assume a1: "BOOST S y oh"
+  then have "BOOST.hyp S y oh k = (\<lambda>i. 0 < BOOST.f S y oh k i)" using BOOST.hyp_def by fastforce
+  also have "(\<lambda>i. 0 < BOOST.f S y oh k i) = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then BOOST.h S y oh t i else 0)))))" using BOOST.convert_f a1 by auto
+  finally have s1: "BOOST.hyp S y oh k = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then BOOST.h S y oh t i else 0)))))" by auto
+  moreover have s1: "\<And>t i. BOOST.h S y oh t i = oh (BOOST.D S y oh t) i"
+    by (simp add: BOOST.h.simps a1)
+  then have "\<And> i. (\<lambda>t. (if t<k then BOOST.h S y oh t i else 0)) = (\<lambda>t. (if t<k then oh (BOOST.D S y oh t) i else 0))"
+    by auto 
+  then have "(\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then BOOST.h S y oh t i else 0)))))
+       = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))" by auto
+  then show "BOOST.hyp S y oh k = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))" using s1
+    by (simp add: calculation)
+qed
+   
+
+
+lemma aux02: "\<forall>S\<in>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}. BOOST S y oh \<Longrightarrow> H k = (\<lambda>S i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))`{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}"
+   using aux1[of _ k] H_def[of k]
+   by (smt image_cong) 
+
+lemma aux01: "(\<lambda>S i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))`{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}
+\<subseteq> (\<lambda>(S,S') i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))))`({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})"
+  by auto
+
+lemma aux2: "(\<lambda> i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+       (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))))
+=((\<lambda>v. linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0)))  v)
+ \<circ> (\<lambda>i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))))"
+  by auto
+
+lemma aux3: "(\<lambda>(S, S')i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+       (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0))))) ` ({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}) 
+=(\<lambda>(S,S').(\<lambda>v. linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0)))  v)
+ \<circ> (\<lambda>i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0))))) ` ({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})"
+  using aux2 by simp
+
+definition "WH k = (\<lambda>S. linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0)))) ` {S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}"
+
+definition "Agg k = (\<lambda>S' i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))) ` {S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}"
+
+lemma "Agg k \<subseteq> {vm. (\<forall>t<k. \<exists>m\<in>B. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }"
+  unfolding Agg_def using ohtwoclass
+  oops
+
+lemma aux4: "(\<lambda>(S,S').(\<lambda>v. linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0)))  v)
+ \<circ> (\<lambda>i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0))))) ` ({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})
+= {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}" unfolding WH_def Agg_def by auto
+
+lemma "\<forall>S\<in>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}. BOOST S y oh \<Longrightarrow> H k \<subseteq> {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}"
+  using aux4 aux3 aux01 aux02 by auto
+
+lemma "(\<lambda>h. restrict_map (mapify h) C) ` {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}  \<subseteq>
+      {map. \<exists>a\<in>((\<lambda>h. restrict_map (mapify h) C) ` (Agg k)). \<exists>w\<in>((\<lambda>h. restrict_map (mapify h) (ran a)) ` (WH k)).
+       map = w \<circ>\<^sub>m a}"
+proof safe
+  fix w a
+  assume "w \<in> WH k" "a \<in> Agg k"
+  have "mapify (w\<circ>a) = (mapify w) \<circ>\<^sub>m (mapify a)" unfolding mapify_alt map_comp_def by auto
+  have "((mapify w) \<circ>\<^sub>m (mapify a)) |` C = (mapify w) \<circ>\<^sub>m ((mapify a) |` C)"
+    unfolding restrict_map_def map_comp_def by auto
+  have "(mapify w) \<circ>\<^sub>m ((mapify a) |` C) = ((mapify w)|` ran ((mapify a) |` C)) \<circ>\<^sub>m ((mapify a) |` C)"
+    using restrict_map_def map_comp_def ran_def 
+
+lemma "(\<lambda>(S,S') i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+       (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))))`({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})
+\<subseteq>(\<lambda>(w, S'). (\<lambda>v. linear_predictor w v) \<circ> (\<lambda>i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))))
+   ` (((\<lambda>S. (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0)))) ` {S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})"
+
+
+lemma "(\<lambda>S i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))`{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}
+\<subseteq> (\<lambda>(S,b) i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+             (vec_lambda (\<lambda>t. (if t<k then (b i) else 0)))))`({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>B)"
+proof
+  fix x
+  assume "x \<in> (\<lambda>S i. linear_predictor (movec.vec_lambda (\<lambda>t. if t < k then BOOST.w S y oh t else 0))
+                     (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) i else 0))) `
+             {S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S}"
+  then obtain S where "S\<in>{S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S}" "x = (\<lambda>S i. linear_predictor (movec.vec_lambda (\<lambda>t. if t < k then BOOST.w S y oh t else 0))
+                     (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) i else 0))) S" by auto
+  obtain b where "b\<in>B" "\<forall>t. b = oh (BOOST.D S y oh t)" using ohtwoclass nonemptyB 
+
+
+lemma "{vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }"
+
+interpretation outer: vcd X "{True, False}" "H T"
+proof
+  show "card {True, False} = 2" by auto
+  show "\<forall>h x. h \<in> H T \<longrightarrow> h x \<in> {True, False}" by auto
+  have "{S. S \<subseteq> X \<and> S \<noteq> {}} \<noteq> {}"
+    using allboost_axioms allboost_def order_refl by fastforce 
+  then show "H T \<noteq> {}" unfolding H_def by blast
+  show "infinite X"
+    using allboost_axioms allboost_def by blast
+qed
+
+interpretation baseclass: vcd X "{-1::real,1}" B
+proof
+  show "card {- 1::real, 1} = 2" by auto
+  show "\<forall>h x. h \<in> B \<longrightarrow> h x \<in> {- 1, 1}"
+    by (meson allboost_axioms allboost_def)
+  show  "B \<noteq> {}" "infinite X" using allboost_axioms allboost_def by auto
+qed
+
+find_theorems name:allboost
+
+term outer.H_map
+
+lemma "\<forall>C\<subseteq>X. restrictH outer.H_map C {True, False} \<subseteq> "

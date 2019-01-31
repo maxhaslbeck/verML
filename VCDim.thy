@@ -13,11 +13,44 @@ definition "allmaps C D = {m. dom m = C \<and> ran m \<subseteq> D}"
 definition "restrictH H C D = {m\<in>(allmaps C D). \<exists>h\<in>H. m \<subseteq>\<^sub>m h}"
 definition "shatters H C D \<longleftrightarrow> allmaps C D = restrictH H C D"
 
+lemma mapify_alt: "mapify f = Some \<circ> f" unfolding mapify_def by auto
 
 lemma "C \<subseteq> dom h \<Longrightarrow> dom (restrict_map h C) = C" by auto
 
 lemma restrict_map_to_dom: "x \<subseteq>\<^sub>m h \<Longrightarrow> restrict_map h (dom x) = x" 
   by (auto simp: domIff restrict_map_def map_le_def) 
+
+lemma "\<forall>h\<in>H. dom h = UNIV \<Longrightarrow> \<forall>h\<in>H. ran h \<subseteq> D \<Longrightarrow> restrictH H C D = (\<lambda>h. restrict_map h C) ` H" 
+proof safe
+  fix m
+  assume "m \<in> restrictH H C D"
+  then have s1: "dom m = C"
+    by (simp add: allmaps_def restrictH_def)
+  moreover obtain h where o1: "h\<in>H" "m \<subseteq>\<^sub>m h" using restrictH_def
+proof -
+assume a1: "\<And>h. \<lbrakk>h \<in> H; m \<subseteq>\<^sub>m h\<rbrakk> \<Longrightarrow> thesis"
+  have "m \<in> {f \<in> allmaps C D. \<exists>fa. fa \<in> H \<and> f \<subseteq>\<^sub>m fa}"
+    using \<open>m \<in> restrictH H C D\<close> restrictH_def by blast
+then show ?thesis
+  using a1 by blast
+qed
+
+  ultimately have "\<forall>x\<in>C. m x = h x"
+    by (simp add: map_le_def)
+  then have "\<forall>x. m x = (h |` C) x" using s1
+    by (metis domIff restrict_map_def)
+  then have "m = h |` C" by auto
+  then show "m\<in>(\<lambda>h. h |` C) ` H" using o1(1) by auto
+next
+  fix h
+  assume a1: "h\<in>H" "\<forall>h\<in>H. ran h \<subseteq> D" "\<forall>h\<in>H. dom h = UNIV"
+  then have "ran (h |` C) \<subseteq> D"
+    by (meson ranI ran_restrictD subsetI subset_eq)
+  moreover have "dom (h |` C) = C" by (simp add: a1)
+  then show "h |` C \<in> restrictH H C D"
+    by (metis (mono_tags, lifting) a1(1) allmaps_def calculation map_le_def
+        mem_Collect_eq restrictH_def restrict_in) 
+qed
 
 lemma finitemaps: "finite C \<Longrightarrow> finite D \<Longrightarrow> finite (allmaps C D)"
   by (simp add: allmaps_def finite_set_of_finite_maps)
