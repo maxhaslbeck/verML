@@ -513,12 +513,12 @@ qed
    
 
 
-lemma "\<forall>S\<in>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}. BOOST S y oh \<Longrightarrow> H k = (\<lambda>S i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+lemma aux02: "\<forall>S\<in>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}. BOOST S y oh \<Longrightarrow> H k = (\<lambda>S i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
              (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))`{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}"
    using aux1[of _ k] H_def[of k]
    by (smt image_cong) 
 
-lemma "(\<lambda>S i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
+lemma aux01: "(\<lambda>S i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
              (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))`{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}
 \<subseteq> (\<lambda>(S,S') i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
              (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))))`({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})"
@@ -540,12 +540,28 @@ definition "WH k = (\<lambda>S. linear_predictor (vec_lambda (\<lambda>t. (if t<
 
 definition "Agg k = (\<lambda>S' i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))) ` {S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}"
 
+lemma "Agg k \<subseteq> {vm. (\<forall>t<k. \<exists>m\<in>B. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }"
+  unfolding Agg_def using ohtwoclass
+  oops
+
 lemma aux4: "(\<lambda>(S,S').(\<lambda>v. linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0)))  v)
  \<circ> (\<lambda>i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0))))) ` ({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})
 = {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}" unfolding WH_def Agg_def by auto
 
 lemma "\<forall>S\<in>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}. BOOST S y oh \<Longrightarrow> H k \<subseteq> {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}"
-  
+  using aux4 aux3 aux01 aux02 by auto
+
+lemma "(\<lambda>h. restrict_map (mapify h) C) ` {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}  \<subseteq>
+      {map. \<exists>a\<in>((\<lambda>h. restrict_map (mapify h) C) ` (Agg k)). \<exists>w\<in>((\<lambda>h. restrict_map (mapify h) (ran a)) ` (WH k)).
+       map = w \<circ>\<^sub>m a}"
+proof safe
+  fix w a
+  assume "w \<in> WH k" "a \<in> Agg k"
+  have "mapify (w\<circ>a) = (mapify w) \<circ>\<^sub>m (mapify a)" unfolding mapify_alt map_comp_def by auto
+  have "((mapify w) \<circ>\<^sub>m (mapify a)) |` C = (mapify w) \<circ>\<^sub>m ((mapify a) |` C)"
+    unfolding restrict_map_def map_comp_def by auto
+  have "(mapify w) \<circ>\<^sub>m ((mapify a) |` C) = ((mapify w)|` ran ((mapify a) |` C)) \<circ>\<^sub>m ((mapify a) |` C)"
+    using restrict_map_def map_comp_def ran_def 
 
 lemma "(\<lambda>(S,S') i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
        (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))))`({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})

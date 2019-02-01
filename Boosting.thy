@@ -541,8 +541,17 @@ definition "WH k = (\<lambda>S. linear_predictor (vec_lambda (\<lambda>t. (if t<
 definition "Agg k = (\<lambda>S' i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))) ` {S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}"
 
 lemma "Agg k \<subseteq> {vm. (\<forall>t<k. \<exists>m\<in>B. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }"
-  unfolding Agg_def using ohtwoclass
-  oops
+  unfolding Agg_def
+proof auto
+  fix xa t S'
+  assume a1:"S' \<subseteq> X" "finite S'" "xa \<in> S'" "t < k"
+  have "\<forall>x. (\<lambda>t. (if t < k then oh (BOOST.D S' y oh t) x else 0)) \<in> {f. \<exists>k. \<forall>q>k. f q = 0}"
+    by (metis (no_types) lt_valid)
+  then have "\<forall>x. movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) x else 0)) t = (if t < k then oh (BOOST.D S' y oh t) x else 0)" using movec.vec_lambda_inverse by auto
+  moreover have "\<exists>m\<in>B. \<forall>x. (if t < k then oh (BOOST.D S' y oh t) x else 0) = m x" using a1(4) ohtwoclass by auto
+  ultimately show " \<exists>m\<in>B. \<forall>x. movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) x else 0)) t = m x" by auto
+  
+qed
 
 lemma aux4: "(\<lambda>(S,S').(\<lambda>v. linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0)))  v)
  \<circ> (\<lambda>i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0))))) ` ({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})
@@ -557,11 +566,70 @@ lemma "(\<lambda>h. restrict_map (mapify h) C) ` {boost. \<exists>w\<in>(WH k). 
 proof safe
   fix w a
   assume "w \<in> WH k" "a \<in> Agg k"
-  have "mapify (w\<circ>a) = (mapify w) \<circ>\<^sub>m (mapify a)" unfolding mapify_alt map_comp_def by auto
-  have "((mapify w) \<circ>\<^sub>m (mapify a)) |` C = (mapify w) \<circ>\<^sub>m ((mapify a) |` C)"
+  moreover have "mapify (w\<circ>a) = (mapify w) \<circ>\<^sub>m (mapify a)" unfolding mapify_alt map_comp_def by auto
+  moreover have "((mapify w) \<circ>\<^sub>m (mapify a)) |` C = (mapify w) \<circ>\<^sub>m ((mapify a) |` C)"
     unfolding restrict_map_def map_comp_def by auto
-  have "(mapify w) \<circ>\<^sub>m ((mapify a) |` C) = ((mapify w)|` ran ((mapify a) |` C)) \<circ>\<^sub>m ((mapify a) |` C)"
-    using restrict_map_def map_comp_def ran_def 
+  moreover have "(mapify w) \<circ>\<^sub>m ((mapify a) |` C) = ((mapify w)|` ran ((mapify a) |` C)) \<circ>\<^sub>m ((mapify a) |` C)"
+    unfolding restrict_map_def map_comp_def ran_def
+  proof -
+    { fix aa :: 'a
+      have ff1: "\<forall>aa. (\<exists>ab. (ab \<in> C \<longrightarrow> mapify a ab = Some (a aa)) \<and> (ab \<notin> C \<longrightarrow> None = Some (a aa))) \<or> aa \<notin> C"
+        by (metis mapify_def)
+      have "a aa \<in> {m. \<exists>aa. (aa \<in> C \<longrightarrow> mapify a aa = Some m) \<and> (aa \<notin> C \<longrightarrow> None = Some m)} \<longrightarrow> (if a aa \<in> {m. \<exists>aa. (aa \<in> C \<longrightarrow> mapify a aa = Some m) \<and> (aa \<notin> C \<longrightarrow> None = Some m)} then mapify w (a aa) else None) = Some (w (a aa))"
+        by (simp add: mapify_def)
+      moreover
+      { assume "(if a aa \<in> {m. \<exists>aa. (aa \<in> C \<longrightarrow> mapify a aa = Some m) \<and> (aa \<notin> C \<longrightarrow> None = Some m)} then mapify w (a aa) else None) = Some (w (a aa))"
+        then have "aa \<in> C \<longrightarrow> (case if aa \<in> C then Some (a aa) else None of None \<Rightarrow> None | Some x \<Rightarrow> (Some \<circ> w) x) = (case if aa \<in> C then Some (a aa) else None of None \<Rightarrow> None | Some m \<Rightarrow> if m \<in> {m. \<exists>aa. (aa \<in> C \<longrightarrow> mapify a aa = Some m) \<and> (aa \<notin> C \<longrightarrow> None = Some m)} then mapify w m else None)"
+          by simp }
+      ultimately have "aa \<in> C \<longrightarrow> (case if aa \<in> C then Some (a aa) else None of None \<Rightarrow> None | Some x \<Rightarrow> (Some \<circ> w) x) = (case if aa \<in> C then Some (a aa) else None of None \<Rightarrow> None | Some m \<Rightarrow> if m \<in> {m. \<exists>aa. (aa \<in> C \<longrightarrow> mapify a aa = Some m) \<and> (aa \<notin> C \<longrightarrow> None = Some m)} then mapify w m else None)"
+        using ff1 by blast
+      then have "(case if aa \<in> C then Some (a aa) else None of None \<Rightarrow> None | Some x \<Rightarrow> (Some \<circ> w) x) = (case if aa \<in> C then Some (a aa) else None of None \<Rightarrow> None | Some m \<Rightarrow> if m \<in> {m. \<exists>aa. (aa \<in> C \<longrightarrow> mapify a aa = Some m) \<and> (aa \<notin> C \<longrightarrow> None = Some m)} then mapify w m else None)"
+        by force
+      then have "(case if aa \<in> C then mapify a aa else None of None \<Rightarrow> None | Some x \<Rightarrow> mapify w x) = (case if aa \<in> C then mapify a aa else None of None \<Rightarrow> None | Some m \<Rightarrow> if m \<in> {m. \<exists>aa. (aa \<in> C \<longrightarrow> mapify a aa = Some m) \<and> (aa \<notin> C \<longrightarrow> None = Some m)} then mapify w m else None)"
+        by (metis (no_types) mapify_alt mapify_def) }
+    then show "(\<lambda>aa. case if aa \<in> C then mapify a aa else None of None \<Rightarrow> None | Some x \<Rightarrow> mapify w x) = (\<lambda>aa. case if aa \<in> C then mapify a aa else None of None \<Rightarrow> None | Some m \<Rightarrow> if m \<in> {m. \<exists>aa. (if aa \<in> C then mapify a aa else None) = Some m} then mapify w m else None)"
+      by presburger
+  qed
+  ultimately show "\<exists>aa\<in>(\<lambda>h. mapify h |` C) ` Agg k. \<exists>wa\<in>(\<lambda>h. mapify h |` ran aa) ` WH k. mapify (w \<circ> a) |` C = wa \<circ>\<^sub>m aa"
+    by auto
+qed
+
+lemma aux843: "finite (dom f) \<Longrightarrow> card (ran f) \<le> card (dom f)"
+proof -
+  assume "finite (dom f)"
+  moreover have "Some ` (ran f) = f ` (dom f)"
+    by (smt Collect_cong Collect_mono aux41 domI image_def mem_Collect_eq ran_def)
+  moreover have "card (ran f) = card (Some ` (ran f))"
+    by (simp add: card_image) 
+  ultimately show "card (ran f) \<le> card (dom f)"
+    by (simp add: card_image_le)
+qed
+
+lemma "finite C \<Longrightarrow> a\<in>((\<lambda>h. restrict_map (mapify h) C) ` (Agg k)) \<Longrightarrow> card (ran a) \<le> card C" using aux843[of a] oops
+
+definition "Agg_res k C = ((\<lambda>h. restrict_map (mapify h) C) ` (Agg k))"
+definition "WH_res k C agg = ((\<lambda>h. restrict_map (mapify h) (ran agg)) ` (WH k))"
+
+(*{vm. (\<forall>t<k. \<exists>m\<in>((\<lambda>h. restrict_map (mapify h) C) ` B). \<forall>x. Some (vec_nth (vm (x::'a)) t) = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }*)
+lemma "Agg_res k C \<subseteq> {vm. (\<forall>x\<in>C. \<exists>z. vm x = Some z \<and> (\<forall>t<k. \<exists>m\<in>((\<lambda>h. restrict_map (mapify h) C) ` B). Some (vec_nth z t) = m x) \<and> (\<forall>t\<ge>k. (vec_nth z t) = 0)) \<and> (\<forall>x. x\<notin>C \<longrightarrow> vm x = None)}"
+  unfolding Agg_res_def Agg_def using ohtwoclass 
+  oops
+
+lemma "\<Union>((\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k C a))) ` Agg_res k C)
+= {dum. \<exists>a\<in>(Agg_res k C). \<exists>w\<in>(WH_res k C a). dum = (w, a)}" 
+
+lemma "\<forall>a\<in>Agg_res k C. card (WH_res k C a) \<le> c1 \<and> finite (WH_res k C a)
+\<Longrightarrow> card (Agg_res k C) \<le> c2 \<and> finite (Agg_res k C)
+ \<Longrightarrow> card (\<Union>((\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k C a))) ` Agg_res k C))
+ \<le> c1 * c2" 
+
+lemma "\<forall>a\<in>Agg_res k C. card (WH_res k C a) \<le> c1 \<and> finite (WH_res k C a)
+\<Longrightarrow> card (Agg_res k C) \<le> c2 \<and> finite (Agg_res k C)
+ \<Longrightarrow> card {map. \<exists>a\<in>(Agg_res k C). \<exists>w\<in>(WH_res k C a). map = w \<circ>\<^sub>m a}
+ \<le> c1 * c2" 
+
+lemma "{map. \<exists>a\<in>((\<lambda>h. restrict_map (mapify h) C) ` (Agg k)). \<exists>w\<in>((\<lambda>h. restrict_map (mapify h) (ran a)) ` (WH k)).
+       map = w \<circ>\<^sub>m a} = (\<lambda>a. ((\<lambda>h. restrict_map (mapify h) (ran a)) ` (WH k))) ` ((\<lambda>h. restrict_map (mapify h) C) ` (Agg k))"
 
 lemma "(\<lambda>(S,S') i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
        (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))))`({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})

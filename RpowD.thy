@@ -204,7 +204,8 @@ lemma scalein: "(\<lambda> i. scaleR r (vec_nth x i))\<in>{f. \<exists>k. \<fora
   by (smt mem_Collect_eq movec.vec_lambda_cases movec.vec_lambda_inverse scale_zero_right)
 
 lemma movector_scaleR_component [simp]: "vec_nth (scaleR r x) i = scaleR r (vec_nth x i)"
-  unfolding scaleR_movec_def scalein by (smt mem_Collect_eq movec.vec_lambda_inverse movec.vec_nth scale_zero_right) 
+  unfolding scaleR_movec_def scalein
+  using movec.vec_lambda_inverse scalein by auto
 
 instance
   by standard (simp_all add: movec_eq_iff algebra_simps)
