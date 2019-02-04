@@ -2,6 +2,9 @@ theory Boosting
   imports Complex_Main LinearPredictor
 begin
 
+lemma only_one: "a\<in>A \<Longrightarrow> \<forall>b\<in>A. b = a \<Longrightarrow> card A = 1"
+  by (metis (no_types, hide_lams) One_nat_def card.empty card_Suc_eq empty_iff equalityI insert_iff subsetI) 
+
 
 locale BOOST =
   fixes C :: "'a set"
@@ -83,8 +86,6 @@ lemma "finite M1 \<Longrightarrow> finite M2 \<Longrightarrow> card ((\<lambda>(
   using card_image_le finite_cartesian_product card_cartesian_product
   by (metis Sigma_cong)
 
-lemma only_one: "a\<in>A \<Longrightarrow> \<forall>b\<in>A. b = a \<Longrightarrow> card A = 1"
-  by (metis (no_types, hide_lams) One_nat_def card.empty card_Suc_eq empty_iff equalityI insert_iff subsetI) 
 
 lemma "card ({vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }) = card Hb ^ k"
 proof(induct k)
@@ -478,16 +479,42 @@ locale allboost =
     and oh :: "('a \<Rightarrow> real) \<Rightarrow> 'a \<Rightarrow> real"
     and T :: nat
     and B :: "('a \<Rightarrow> real) set"
-assumes "infinite X"
+assumes infx: "infinite X"
     and ytwoclass: "\<forall>x. y x \<in> {-1,1}"
     and ohtwoclass: "\<forall>Ds. oh Ds \<in> B"
-    and "\<forall>h x. h \<in> B \<longrightarrow> h x \<in> {- 1, 1}"
+    and defonB: "\<forall>h x. h \<in> B \<longrightarrow> h x \<in> {- 1, 1}"
     and nonemptyB: "B \<noteq> {}"
 begin
 term BOOST.hyp
 
+
 definition "H t = (\<lambda>S. BOOST.hyp S y oh t) `{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}"
 definition "H' t = (\<lambda>(S, oh). BOOST.hyp S y oh t) `({S. S\<subseteq>X \<and> S\<noteq>{}}\<times>{oh. \<forall>DS. oh DS \<in> B})"
+
+
+interpretation outer: vcd X "{True, False}" "H T"
+proof
+  show "card {True, False} = 2" by auto
+  show "\<forall>h x. h \<in> H T \<longrightarrow> h x \<in> {True, False}" by auto
+  have "{S. S \<subseteq> X \<and> S \<noteq> {}} \<noteq> {}"
+    using allboost_axioms allboost_def order_refl by fastforce 
+  then show "H T \<noteq> {}" unfolding H_def by blast
+  show "infinite X"
+    using allboost_axioms allboost_def by blast
+qed
+
+interpretation baseclass: vcd X "{-1::real,1}" B
+proof
+  show "card {- 1::real, 1} = 2" by auto
+  show "\<forall>h x. h \<in> B \<longrightarrow> h x \<in> {- 1, 1}"
+    by (meson allboost_axioms allboost_def)
+  show  "B \<noteq> {}" "infinite X" using allboost_axioms allboost_def by auto
+qed
+
+lemma baux: "(\<lambda>h. h |` C) ` baseclass.H_map = (\<lambda>h. restrict_map (mapify h) C) ` B" by auto
+
+lemma "baseclass.VCDim = Some d \<Longrightarrow> 0 < d \<Longrightarrow> d \<le> card C \<Longrightarrow> C \<subseteq> X \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` B) \<le> (d+1)*(card C)^d"
+  using baseclass.resforboost[of C d] baux by auto
 
 lemma aux1: "BOOST S y oh \<Longrightarrow> BOOST.hyp S y oh k = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
              (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))"
@@ -540,6 +567,20 @@ definition "WH k = (\<lambda>S. linear_predictor (vec_lambda (\<lambda>t. (if t<
 
 definition "Agg k = (\<lambda>S' i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))) ` {S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}"
 
+    
+lemma "WH k \<subseteq> all_linear(myroom k)"
+proof -
+  have "\<forall>S. (movec.vec_lambda (\<lambda>t. if t < k then BOOST.w S y oh t else 0)) \<in> {x. \<forall>q\<ge>k. movec.vec_nth x q = 0}"
+  proof auto
+    fix S q
+    show "k \<le> q \<Longrightarrow> movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then BOOST.w S y oh t else 0)) q = 0"
+      using vec_lambda_inverse lt_valid[of k "BOOST.w S y oh"] by auto
+  qed
+  then show ?thesis unfolding WH_def all_linear_def myroom_def
+    by auto
+qed
+
+(*
 lemma "Agg k \<subseteq> {vm. (\<forall>t<k. \<exists>m\<in>B. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }"
   unfolding Agg_def
 proof auto
@@ -552,13 +593,17 @@ proof auto
   ultimately show " \<exists>m\<in>B. \<forall>x. movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) x else 0)) t = m x" by auto
   
 qed
-
+*)
 lemma aux4: "(\<lambda>(S,S').(\<lambda>v. linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0)))  v)
  \<circ> (\<lambda>i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0))))) ` ({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})
 = {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}" unfolding WH_def Agg_def by auto
 
-lemma "\<forall>S\<in>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}. BOOST S y oh \<Longrightarrow> H k \<subseteq> {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}"
-  using aux4 aux3 aux01 aux02 by auto
+lemma aux5: "\<forall>S\<in>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}. BOOST S y oh" unfolding BOOST_def
+  using allboost_axioms ohtwoclass ytwoclass defonB by auto
+
+lemma "H k \<subseteq> {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}"
+  using aux4 aux3 aux01 aux02 aux5 by auto
+
 
 lemma "(\<lambda>h. restrict_map (mapify h) C) ` {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}  \<subseteq>
       {map. \<exists>a\<in>((\<lambda>h. restrict_map (mapify h) C) ` (Agg k)). \<exists>w\<in>((\<lambda>h. restrict_map (mapify h) (ran a)) ` (WH k)).
@@ -610,11 +655,279 @@ lemma "finite C \<Longrightarrow> a\<in>((\<lambda>h. restrict_map (mapify h) C)
 definition "Agg_res k C = ((\<lambda>h. restrict_map (mapify h) C) ` (Agg k))"
 definition "WH_res k C agg = ((\<lambda>h. restrict_map (mapify h) (ran agg)) ` (WH k))"
 
+(*
+definition "Agg_res_trans k C = {vm. (\<forall>t<k. \<exists>m\<in>((\<lambda>h. restrict_map (mapify h) C) ` B). \<forall>x. (case vm x of Some z \<Rightarrow> Some (vec_nth z t) = m x | None \<Rightarrow> x\<notin>C))
+            \<and> (\<forall>t\<ge>k. \<forall>x. (case vm x of Some z \<Rightarrow> z = 0 | None \<Rightarrow> x\<notin>C))}"
+
+lemma "Agg_res k C \<subseteq> Agg_res_trans k C" unfolding Agg_res_def Agg_def Agg_res_trans_def
+proof auto
+ fix t S' xb
+  assume "t < k"
+  let ?m = "oh (BOOST.D S' y oh t)"
+  have "case (mapify (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) i else 0)) |`
+                        C)
+                        xb of
+                  None \<Rightarrow> xb \<notin> C | Some z \<Rightarrow> Some (movec.vec_nth z t) = (mapify ?m |` C) xb" 
+    apply (cases "xb\<in>C") apply auto
+  then have "\<forall>x. (mapify (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) i else 0)) |`C) x
+            = (mapify (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) i else 0)) |`C) x"
+    by auto
+  obtain z where o1: "mapify (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) i else 0)) xb = Some z"
+    by (simp add: mapify_def)
+  then have "z = (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) i else 0)) xb" by (simp add: mapify_def)
+  then have s1: "\<forall>t. vec_nth z t = (if t < k then oh (BOOST.D S' y oh t) xb else 0)"
+    using vec_lambda_inverse lt_valid[of k "(\<lambda>t. oh (BOOST.D S' y oh t) xb)"] by auto
+  then have "(\<forall>t<k. \<exists>m\<in>B. Some (movec.vec_nth z t) = mapify m xb)"
+    using ohtwoclass mapify_def by metis 
+  moreover have "\<forall>t\<ge>k. movec.vec_nth z t = 0" using s1 by auto
+  ultimately have "\<exists>z. mapify (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) i else 0)) xb = Some z \<and>
+           (\<forall>t<k. \<exists>m\<in>B. Some (movec.vec_nth z t) = mapify m xb) \<and> (\<forall>t\<ge>k. movec.vec_nth z t = 0)"
+    using o1 by auto
+
 (*{vm. (\<forall>t<k. \<exists>m\<in>((\<lambda>h. restrict_map (mapify h) C) ` B). \<forall>x. Some (vec_nth (vm (x::'a)) t) = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }*)
-lemma "Agg_res k C \<subseteq> {vm. (\<forall>x\<in>C. \<exists>z. vm x = Some z \<and> (\<forall>t<k. \<exists>m\<in>((\<lambda>h. restrict_map (mapify h) C) ` B). Some (vec_nth z t) = m x) \<and> (\<forall>t\<ge>k. (vec_nth z t) = 0)) \<and> (\<forall>x. x\<notin>C \<longrightarrow> vm x = None)}"
-  unfolding Agg_res_def Agg_def using ohtwoclass 
+lemma "Agg_res k C \<subseteq> {vm. (\<forall>x\<in>C. \<exists>z. vm x = Some z \<and> (\<forall>t<k. \<exists>m\<in>((\<lambda>h. restrict_map (mapify h) C) ` B).
+     Some (vec_nth z t) = m x) \<and> (\<forall>t\<ge>k. (vec_nth z t) = 0)) \<and> (\<forall>x. x\<notin>C \<longrightarrow> vm x = None)}"
+  unfolding Agg_res_def Agg_def
+proof auto
+  fix xb S'
+  assume "xb\<in>C"
+  obtain z where o1: "mapify (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) i else 0)) xb = Some z"
+    by (simp add: mapify_def)
+  then have "z = (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) i else 0)) xb" by (simp add: mapify_def)
+  then have s1: "\<forall>t. vec_nth z t = (if t < k then oh (BOOST.D S' y oh t) xb else 0)"
+    using vec_lambda_inverse lt_valid[of k "(\<lambda>t. oh (BOOST.D S' y oh t) xb)"] by auto
+  then have "(\<forall>t<k. \<exists>m\<in>B. Some (movec.vec_nth z t) = mapify m xb)"
+    using ohtwoclass mapify_def by metis 
+  moreover have "\<forall>t\<ge>k. movec.vec_nth z t = 0" using s1 by auto
+  ultimately show "\<exists>z. mapify (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) i else 0)) xb = Some z \<and>
+           (\<forall>t<k. \<exists>m\<in>B. Some (movec.vec_nth z t) = mapify m xb) \<and> (\<forall>t\<ge>k. movec.vec_nth z t = 0)"
+    using o1 by auto
+qed
+*)
+lemma aux296: "(a::nat) \<le> b * c \<Longrightarrow> b \<le> c ^ (d::nat) \<Longrightarrow> c \<ge> 0  \<Longrightarrow> a \<le> c ^ (Suc d)"
+  by (metis dual_order.trans mult.commute mult_right_mono power_Suc)
+
+lemma mapify_restrict_alt: "mapify h |` C = (\<lambda>x. if x\<in>C then Some (h x) else None)"
+  by (metis mapify_def restrict_in restrict_out)
+
+lemma assumes "finite C"
+  shows "card (Agg_res k C) \<le> card ((\<lambda>h. restrict_map (mapify h) C) ` B) ^ k"
+proof(induct k)
+  case 0
+  let ?f = "(\<lambda>x. if x\<in>C then Some 0 else None)"
+  let ?A = "((\<lambda>h. mapify h |` C) `
+      (\<lambda>S' i. movec.vec_lambda (\<lambda>t. if t < 0 then oh (BOOST.D S' y oh t) i else 0)) `
+      {S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S})"
+  have s0: "{S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S} \<noteq> {}" using infx sorry
+  then have "(\<lambda>S' i. movec.vec_lambda (\<lambda>t. if t < 0 then oh (BOOST.D S' y oh t) i else 0)) `
+      {S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S} = {(\<lambda>i. 0)}" using zero_movec_def by auto
+  then have "card ?A \<le> 1" using card_image_le by auto
+  then show ?case unfolding Agg_res_def Agg_def by auto 
+next
+  case c1: (Suc k)
+  let ?SucA = "Agg_res (Suc k) C"
+  let ?A = "Agg_res k C"
+  let ?resB = "(\<lambda>h. mapify h |` C) ` B"
+  let ?conv = "(\<lambda>(vm, g). (\<lambda>x. (case (vm x) of Some z \<Rightarrow> Some (vec_lambda 
+  (\<lambda>t. if t=k then (case g x of Some x' \<Rightarrow> x') else vec_nth z t)) | None \<Rightarrow> None)))"
+  have s1: "?SucA \<subseteq>
+     ?conv ` (?A \<times> ?resB)"
+  proof
+    fix vm
+    assume a1: "vm\<in>?SucA"
+    then obtain S where o1: "S\<in>{S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S}"
+      "vm = (\<lambda>h. mapify h |` C) ((\<lambda>S' i. movec.vec_lambda (\<lambda>t. if t < Suc k then oh (BOOST.D S' y oh t) i else 0)) S)"
+      unfolding Agg_res_def Agg_def by auto
+    have s2: "dom vm = C" using a1 Agg_res_def
+      by (simp add: dom_mapify_restrict)
+    let ?vm = "(\<lambda>x. (case (vm x) of Some z \<Rightarrow> Some (vec_lambda 
+  (\<lambda>t. if t=k then 0 else vec_nth z t)) | None \<Rightarrow> None))"
+    let ?vm' = "(\<lambda>h. mapify h |` C) ((\<lambda>S' i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S' y oh t) i else 0)) S)"
+    have "\<forall>x. ?vm x = ?vm' x"
+    proof
+      fix x
+      show "(case vm x of None \<Rightarrow> None
+          | Some z \<Rightarrow> Some (movec.vec_lambda (\<lambda>t. if t = k then 0 else movec.vec_nth z t))) =
+         (mapify (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) i else 0)) |` C) x"
+      proof(cases "vm x")
+        case None
+        moreover from this have "x\<notin>C" using s2 by auto
+        ultimately show ?thesis by auto
+      next
+        case c1: (Some a)
+        then have s3: "x\<in>C" using s2 by auto
+        then have s4: "(mapify (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) i else 0)) |` C) x
+        =  Some ( movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0))"
+          by (meson mapify_restrict_alt)
+        have "a = movec.vec_lambda (\<lambda>t. if t < Suc k then oh (BOOST.D S y oh t) x else 0)"
+          using o1(2) c1 s3 
+            mapify_restrict_alt[of "(\<lambda>i. movec.vec_lambda (\<lambda>t. if t < Suc k then oh (BOOST.D S y oh t) i else 0))" C]
+          by auto
+        then have "\<forall>t. (\<lambda>t. if t = k then 0 else movec.vec_nth a t) t = (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0) t"
+          using vec_lambda_inverse lt_valid[of "Suc k" "(\<lambda>t. oh (BOOST.D S y oh t) x)"] by auto
+        then have "(\<lambda>t. if t = k then 0 else movec.vec_nth a t) = (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0)"
+          by auto
+        then show ?thesis
+          by (simp add: c1 s4) 
+      qed
+    qed
+    then have s100: "?vm \<in> ?A" unfolding Agg_res_def Agg_def using o1(1) by auto
+    have "oh (BOOST.D S y oh k) \<in> B" using ohtwoclass by auto
+    then have "mapify (oh (BOOST.D S y oh k)) |` C \<in> ?resB" by auto
+    then have s101: "(\<lambda>x. if x\<in>C then Some (oh (BOOST.D S y oh k) x) else None) \<in> ?resB" 
+      using mapify_restrict_alt[of "oh (BOOST.D S y oh k)" C] by auto
+    have s102: "vm = ?conv (?vm,(\<lambda>x. if x\<in>C then Some (oh (BOOST.D S y oh k) x) else None))"
+    proof
+      fix x
+      show "vm x =
+         (case (\<lambda>x. case vm x of None \<Rightarrow> None
+                     | Some z \<Rightarrow> Some (movec.vec_lambda (\<lambda>t. if t = k then 0 else movec.vec_nth z t)),
+                \<lambda>x. if x \<in> C then Some (oh (BOOST.D S y oh k) x) else None) of
+          (vm, g) \<Rightarrow>
+            \<lambda>x. case vm x of None \<Rightarrow> None
+                 | Some z \<Rightarrow>
+                     Some
+                      (movec.vec_lambda
+                        (\<lambda>t. if t = k then case g x of Some x' \<Rightarrow> x' else movec.vec_nth z t)))
+          x"
+      proof(cases "vm x")
+        case None
+        then show ?thesis by auto
+      next
+        case c1: (Some a)
+        moreover from this have s3: "x\<in>C" using s2 by auto
+        ultimately show ?thesis apply auto
+        proof -
+          have s4: "a = movec.vec_lambda (\<lambda>t. if t < Suc k then oh (BOOST.D S y oh t) x else 0)"
+            using o1(2) c1 s3 
+              mapify_restrict_alt[of "(\<lambda>i. movec.vec_lambda (\<lambda>t. if t < Suc k then oh (BOOST.D S y oh t) i else 0))" C]
+            by auto
+          then have "\<forall>t. (\<lambda>t. if t = k then 0 else movec.vec_nth a t) t = (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0) t"
+            using vec_lambda_inverse lt_valid[of "Suc k" "(\<lambda>t. oh (BOOST.D S y oh t) x)"] by auto
+          then have "(\<lambda>t. if t = k then 0 else movec.vec_nth a t) = (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0)"
+            by auto
+          then have s5: "movec.vec_lambda (\<lambda>t. if t = k then (oh (BOOST.D S y oh k) x)  else
+     movec.vec_nth (movec.vec_lambda (\<lambda>t. if t = k then 0 else movec.vec_nth a t)) t)
+      = movec.vec_lambda (\<lambda>t. if t = k then (oh (BOOST.D S y oh k) x)  else
+     movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0)) t)" 
+            by metis
+          have "movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0))
+              = (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0)" 
+            using vec_lambda_inverse lt_valid[of k "(\<lambda>t. oh (BOOST.D S y oh t) x)"] by auto
+
+          then have "movec.vec_lambda (\<lambda>t. if t = k then (oh (BOOST.D S y oh k) x)  else
+     (movec.vec_nth (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0))) t)
+       = movec.vec_lambda (\<lambda>t. if t = k then (oh (BOOST.D S y oh k) x)  else
+     (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0) t)" by presburger
+          moreover have "...
+        = movec.vec_lambda (\<lambda>t. if t < Suc k then oh (BOOST.D S y oh t) x else 0)"
+            by (metis (full_types) less_Suc_eq) 
+          ultimately have "a = movec.vec_lambda (\<lambda>t. if t = k then (oh (BOOST.D S y oh k) x)  else
+     movec.vec_nth (movec.vec_lambda (\<lambda>t. if t = k then 0 else movec.vec_nth a t)) t)"
+            using s4 s5 by auto
+          then show "a =
+    movec.vec_lambda
+     (\<lambda>t. if t = k then case Some (oh (BOOST.D S y oh k) x) of Some x' \<Rightarrow> x'
+           else movec.vec_nth (movec.vec_lambda (\<lambda>t. if t = k then 0 else movec.vec_nth a t)) t)"
+            by (metis option.simps(5)) 
+        qed
+      qed
+    qed
+    from s100 s101 have "(?vm,(\<lambda>x. if x\<in>C then Some (oh (BOOST.D S y oh k) x) else None)) \<in> (?A \<times> ?resB)"
+      by auto
+    from this s102 show "vm \<in> ?conv ` (?A \<times> ?resB)" by blast
+  qed
+  then have "finite ?A \<Longrightarrow> finite ?resB \<Longrightarrow> card ?SucA \<le> card ?A * card ?resB"
+  proof -
+    assume a1: "finite ?A" "finite ?resB"
+    then have "finite (?conv ` (?A \<times> ?resB))" by auto
+    then have "card ?SucA \<le> card (?A \<times> ?resB)" 
+      using s1 card_image_le[of "(?A \<times> ?resB)" ?conv] a1 card_mono[of "(?conv ` (?A \<times> ?resB))" ?SucA] by auto
+    then show "card ?SucA \<le> card ?A * card ?resB"
+      using card_cartesian_product[of ?A ?resB] by auto
+  qed
+  moreover have "finite ?resB" using assms sorry
+  moreover have "finite ?A" sorry
+  ultimately have "card ?SucA \<le> card ?A * card ?resB" by auto
+  then show ?case using aux296 c1 by auto
+qed
+
+(*
+lemma assumes "finite C"
+  shows "card ({vm. (\<forall>x\<in>C. \<exists>z. vm x = Some z \<and> (\<forall>t<k. \<exists>m\<in>((\<lambda>h. restrict_map (mapify h) C) ` B).
+     Some (vec_nth z t) = m x) \<and> (\<forall>t\<ge>k. (vec_nth z t) = 0)) \<and> (\<forall>x. x\<notin>C \<longrightarrow> vm x = None)}) \<le> card ((\<lambda>h. restrict_map (mapify h) C) ` B) ^ k"
+proof(induct k)
+  case 0
+  let ?f = "(\<lambda>x. if x\<in>C then Some 0 else None)"
+  let ?A = "{vm. (\<forall>x\<in>C. \<exists>z. vm x = Some z \<and>
+                  (\<forall>t<0. \<exists>m\<in>(\<lambda>h. mapify h |` C) ` B. Some (movec.vec_nth z t) = m x) \<and>
+                  (\<forall>t\<ge>0. movec.vec_nth z t = 0)) \<and> (\<forall>x. x \<notin> C \<longrightarrow> vm x = None)}"
+  have s1: "?f\<in>?A"
+    by simp
+  have "\<forall>g\<in>?A.  \<forall>x. g x = (if x\<in>C then Some 0 else None)"
+    using movec_eq_iff by auto
+  then have "\<forall>g\<in>?A.  g = ?f"
+    by auto
+  then have "card ?A = 1"
+    using s1 only_one[of ?f ?A] by simp
+  then show ?case by auto 
+next
+  case c1: (Suc k)
+  let ?SucA = "{vm.(\<forall>x\<in>C. \<exists>z. vm x = Some z \<and>
+                   (\<forall>t<Suc k. \<exists>m\<in>(\<lambda>h. mapify h |` C) ` B. Some (movec.vec_nth z t) = m x) \<and>
+                   (\<forall>t\<ge>Suc k. movec.vec_nth z t = 0)) \<and> (\<forall>x. x \<notin> C \<longrightarrow> vm x = None)}"
+  let ?A = "   {vm.(\<forall>x\<in>C. \<exists>z. vm x = Some z \<and>
+                   (\<forall>t<k. \<exists>m\<in>(\<lambda>h. mapify h |` C) ` B. Some (movec.vec_nth z t) = m x) \<and>
+                   (\<forall>t\<ge>k. movec.vec_nth z t = 0)) \<and> (\<forall>x. x \<notin> C \<longrightarrow> vm x = None)}"
+  let ?resB = "(\<lambda>h. mapify h |` C) ` B"
+  let ?conv = "(\<lambda>(vm, g). (\<lambda>x. (case (vm x) of Some z \<Rightarrow> Some (vec_lambda 
+  (\<lambda>t. if t=k then (case g x of Some x' \<Rightarrow> x') else vec_nth z t)) | None \<Rightarrow> None)))"
+  have s1: "?SucA \<subseteq>
+     ?conv ` (?A \<times> ?resB)"
+  proof auto
+    fix vm
+    assume "\<forall>xa\<in>C.
+            \<exists>z. vm xa = Some z \<and>
+                (\<forall>t<Suc k. \<exists>m\<in>B. Some (movec.vec_nth z t) = mapify m xa) \<and>
+                (\<forall>t\<ge>Suc k. movec.vec_nth z t = 0)"
+            " \<forall>xa. xa \<notin> C \<longrightarrow> vm xa = None"
+    let ?vm = "(\<lambda>x. (case (vm x) of Some z \<Rightarrow> Some (vec_lambda 
+  (\<lambda>t. if t=k then 0 else vec_nth z t)) | None \<Rightarrow> None))"
+  (*proof (auto)
+    fix vm
+    assume a1: "\<forall>t<Suc k. \<exists>m\<in>Hb. \<forall>xa. movec.vec_nth (vm xa) t = m xa"
+            "\<forall>t\<ge>Suc k. \<forall>xa. movec.vec_nth (vm xa) t = 0"
+    let ?kM = "{vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)}"
+    let ?wm = "(\<lambda>x. upd_movec (vm x) k 0)"
+    have "?wm\<in>?kM" sorry
+    obtain h where o1: "h\<in>Hb" "\<forall>x. vec_nth (vm x) k = h x" using a1 by auto
+
+    have "\<exists>wm\<in>{vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)}. \<exists>h\<in>Hb.
+   vm = (\<lambda>(vm, g) x. movec.vec_lambda (\<lambda>k'. if k' = k then g x else movec.vec_nth (vm x) k')) (wm, h)"
+      sorry
+    then show "vm \<in> (\<lambda>(vm, g) x. movec.vec_lambda (\<lambda>k'. if k' = k then g x else movec.vec_nth (vm x) k')) `
+       ({vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)} \<times> Hb)"
+      by auto
+  qed *)
+  then have "finite ?A \<Longrightarrow> finite ?resB \<Longrightarrow> card ?SucA \<le> card ?A * card ?resB"
+  proof -
+    assume a1: "finite ?A" "finite ?resB"
+    then have "finite (?conv ` (?A \<times> ?resB))" by auto
+    then have "card ?SucA \<le> card (?A \<times> ?resB)" 
+      using s1 card_image_le[of "(?A \<times> ?resB)" ?conv] a1 card_mono[of "(?conv ` (?A \<times> ?resB))" ?SucA] by auto
+    then show "card ?SucA \<le> card ?A * card ?resB"
+      using card_cartesian_product[of ?A ?resB] by auto
+  qed
+  moreover have "finite ?resB" using assms sorry
+  moreover have "finite ?A" sorry
+  ultimately have "card ?SucA \<le> card ?A * card ?resB" by auto
+  then show ?case using aux296 c1 by auto
+qed
+  
+  using ohtwoclass defonB 
   oops
 
+*)
 lemma "\<Union>((\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k C a))) ` Agg_res k C)
 = {dum. \<exists>a\<in>(Agg_res k C). \<exists>w\<in>(WH_res k C a). dum = (w, a)}" 
 
@@ -653,24 +966,7 @@ proof
 
 lemma "{vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }"
 
-interpretation outer: vcd X "{True, False}" "H T"
-proof
-  show "card {True, False} = 2" by auto
-  show "\<forall>h x. h \<in> H T \<longrightarrow> h x \<in> {True, False}" by auto
-  have "{S. S \<subseteq> X \<and> S \<noteq> {}} \<noteq> {}"
-    using allboost_axioms allboost_def order_refl by fastforce 
-  then show "H T \<noteq> {}" unfolding H_def by blast
-  show "infinite X"
-    using allboost_axioms allboost_def by blast
-qed
 
-interpretation baseclass: vcd X "{-1::real,1}" B
-proof
-  show "card {- 1::real, 1} = 2" by auto
-  show "\<forall>h x. h \<in> B \<longrightarrow> h x \<in> {- 1, 1}"
-    by (meson allboost_axioms allboost_def)
-  show  "B \<noteq> {}" "infinite X" using allboost_axioms allboost_def by auto
-qed
 
 find_theorems name:allboost
 

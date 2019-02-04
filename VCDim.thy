@@ -20,7 +20,7 @@ lemma "C \<subseteq> dom h \<Longrightarrow> dom (restrict_map h C) = C" by auto
 lemma restrict_map_to_dom: "x \<subseteq>\<^sub>m h \<Longrightarrow> restrict_map h (dom x) = x" 
   by (auto simp: domIff restrict_map_def map_le_def) 
 
-lemma "\<forall>h\<in>H. dom h = UNIV \<Longrightarrow> \<forall>h\<in>H. ran h \<subseteq> D \<Longrightarrow> restrictH H C D = (\<lambda>h. restrict_map h C) ` H" 
+lemma auxtemp: "\<forall>h\<in>H. dom h = UNIV \<Longrightarrow> \<forall>h\<in>H. ran h \<subseteq> D \<Longrightarrow> restrictH H C D = (\<lambda>h. restrict_map h C) ` H" 
 proof safe
   fix m
   assume "m \<in> restrictH H C D"
@@ -50,6 +50,16 @@ next
   then show "h |` C \<in> restrictH H C D"
     by (metis (mono_tags, lifting) a1(1) allmaps_def calculation map_le_def
         mem_Collect_eq restrictH_def restrict_in) 
+qed
+
+lemma dom_mapify_restrict: "m \<in> (\<lambda>h. mapify h |` C) ` H \<Longrightarrow> dom m = C"
+proof -
+  assume "m \<in> (\<lambda>h. mapify h |` C) ` H"
+  then obtain h where o1: "h\<in>H" "(\<lambda>h. mapify h |` C) h = m" by auto
+  then have "dom (mapify h) = UNIV" 
+    by (simp add: mapify_def)
+  then show "dom m = C"
+    using dom_restrict o1 by fastforce
 qed
 
 lemma finitemaps: "finite C \<Longrightarrow> finite D \<Longrightarrow> finite (allmaps C D)"
@@ -182,6 +192,9 @@ lemma domh: "\<forall>h\<in>H_map. dom h = UNIV"
   by (simp add: mapify_def) 
 
 lemma nnHmap: "H_map \<noteq> {}" using nnH by auto
+
+lemma restrictH_map_conv: "restrictH H_map C Y = (\<lambda>h. restrict_map h C) ` H_map" 
+  using auxtemp domh ranh by blast
 
 lemma assumes "H'\<noteq>{}" "H'\<subseteq>H_map"
     shows empty_shatted: "shatters H' {} D"
@@ -679,6 +692,12 @@ lemma aux123: "m\<ge>d \<Longrightarrow> sum (\<lambda>x. m choose x) {0..d} \<l
    by (smt One_nat_def add.right_neutral add_Suc_right atLeastAtMost_iff binomial_le_pow binomial_n_0 card_atLeastAtMost diff_zero
        le_antisym le_neq_implies_less le_trans less_one nat_le_linear nat_zero_less_power_iff neq0_conv of_nat_id power_increasing_iff)
 
+lemma assumes "C\<subseteq>X" "0<d" "VCDim = Some d" "d \<le> card C"
+  shows resforboost: "card ((\<lambda>h. h |` C) ` H_map) \<le> (d+1)*(card C)^d"
+    using restrictH_map_conv[of C] aux123[of d] superaux[of d _ C]  assms
+    by (metis (no_types, lifting) le_trans not_less) 
+
+    
   lemma assumes "set_pmf D \<subseteq> X"
       and "f ` X = Y"
       and "\<delta>\<in>{x.0<x\<and>x<1}"
