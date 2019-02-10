@@ -246,6 +246,13 @@ proof
     by (simp add: dgz)
 qed
 
+lemma vaux: "(\<lambda>h. h |` C) ` H_map = (\<lambda>h. restrict_map (mapify h) C) ` (all_linear (myroom d))" by auto
+
+lemma vmain: "d \<le> card C \<Longrightarrow> C \<subseteq> (myroom d) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (all_linear (myroom d))) \<le> (d+1)*(card C)^d"
+  using resforboost[of C d] vaux linvcd dgz by auto
+
+lemma vfinite: "finite C \<Longrightarrow> finite ((\<lambda>h. restrict_map (mapify h) C) ` (all_linear (myroom d)))"
+  using finiteres[of C "{True, False}" "H_map"] restrictH_map_conv[of C] vaux[of C] by simp
 
 lemma "0<(m::nat) \<Longrightarrow> growth m \<le> sum (\<lambda>x. m choose x) {0..d}"
   using lem610 linvcd by auto
