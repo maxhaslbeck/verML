@@ -517,6 +517,7 @@ lemma baux: "(\<lambda>h. h |` C) ` baseclass.H_map = (\<lambda>h. restrict_map 
 lemma "baseclass.VCDim = Some d \<Longrightarrow> 0 < d \<Longrightarrow> d \<le> card C \<Longrightarrow> C \<subseteq> X \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` B) \<le> (d+1)*(card C)^d"
   using baseclass.resforboost[of C d] baux by auto
 
+
 lemma aux1: "BOOST S y oh \<Longrightarrow> BOOST.hyp S y oh k = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
              (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))"
 proof -
@@ -591,7 +592,7 @@ lemma vecmain: "T \<le> card C \<Longrightarrow> C \<subseteq> (myroom T) \<Long
 
 lemma aux259: "A\<subseteq>D \<Longrightarrow> ((\<lambda>h. mapify h |` C) ` A) \<subseteq> ((\<lambda>h. mapify h |` C) ` D)" by auto
 
-lemma "finite C \<Longrightarrow> T \<le> card C \<Longrightarrow> C \<subseteq> (myroom T) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (WH T)) \<le> (T+1)*(card C)^T"
+lemma vec1: "finite C \<Longrightarrow> T \<le> card C \<Longrightarrow> C \<subseteq> (myroom T) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (WH T)) \<le> (T+1)*(card C)^T"
   using vecmain WH_subset[of T] vectors.vfinite card_mono aux259[of "WH T" "all_linear (myroom T)"]
 proof -
   assume a1: "C \<subseteq> myroom T"
@@ -681,32 +682,75 @@ definition "WH_res k C agg = ((\<lambda>h. restrict_map (mapify h) (ran agg)) ` 
 lemma aux630: "movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) i else 0) \<in> myroom k" 
     using lt_valid[of k "(\<lambda>t. oh (BOOST.D S y oh t) i)"] myroom_def[of k] vec_lambda_inverse by auto
 
+lemma "finite C \<Longrightarrow> T \<le> card C \<Longrightarrow> C \<subseteq> (myroom T) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (WH T)) \<le> (T+1)*(card C)^T"
+  oops
+
+
+
 lemma assumes "finite C" "a\<in>Agg_res k C"
-  shows "card (ran a) \<le> card C" "ran a \<subseteq> myroom k"
+  shows vec2: "card (ran a) \<le> card C" "ran a \<subseteq> myroom k"
 proof -
   have "dom a \<subseteq> C" using assms(2) Agg_res_def
     by (simp add: dom_mapify_restrict)
   then show "card (ran a) \<le> card C" using card_mono assms(1) aux843
     by (metis infinite_super le_trans)
-  have "\<forall>x b. a x = Some b \<longrightarrow> b\<in>myroom k" 
-    using assms(2) Agg_res_def[of k C] Agg_def[of k] aux630[of k] sorry
    obtain S where o1: "S\<in>{S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S}"
       "a = (\<lambda>h. mapify h |` C) (\<lambda>i. movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) i else 0))"
      using Agg_res_def Agg_def assms(2) by auto
   show "ran a \<subseteq> myroom k" 
   proof
     fix r
-    assume "r\<in> ran a"
-    then obtain x where "a x = Some r"
+    assume a1: "r\<in> ran a"
+    then obtain x where o2: "a x = Some r"
     proof -
       assume a1: "\<And>x. a x = Some r \<Longrightarrow> thesis"
       have "r \<in> {m. \<exists>aa. a aa = Some m}"
         by (metis \<open>r \<in> ran a\<close> ran_def)
       then show ?thesis
         using a1 by blast
-    qed 
-    show "r\<in> myroom k"
+    qed
+    moreover have "a x = Some (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0))"
+    proof -
+      have "x \<in> C"
+        using o2 \<open>dom a \<subseteq> C\<close> by blast
+      then show ?thesis
+        by (simp add: mapify_def o1(2))
+    qed
+    ultimately have "r = movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) x else 0)" by auto
+    then show "r\<in> myroom k" using myroom_def aux630[of k] by auto
+  qed
 qed
+
+
+lemma
+  assumes "finite C" "a\<in>Agg_res T C" "T \<le> card C" "T \<le> card (ran a)"
+  shows "card (WH_res T C a) \<le> (T+1)*(card C)^T"
+  using vec1[of "ran a"] vec2[of C a T] WH_res_def[of T C a] assms
+proof -
+  have "dom a = C" using assms(2) Agg_res_def mapify_def 
+  proof -
+    obtain mm :: "('a \<Rightarrow> movec) set \<Rightarrow> (('a \<Rightarrow> movec) \<Rightarrow> 'a \<Rightarrow> movec option) \<Rightarrow> ('a \<Rightarrow> movec option) \<Rightarrow> 'a \<Rightarrow> movec" where
+      f1: "\<forall>x0 x1 x2. (\<exists>v3. x2 = x1 v3 \<and> v3 \<in> x0) = (x2 = x1 (mm x0 x1 x2) \<and> mm x0 x1 x2 \<in> x0)"
+      by moura
+    have "a \<in> (\<lambda>f. mapify f |` C) ` Agg T"
+      using Agg_res_def assms(2) by blast
+    then have f2: "a = mapify (mm (Agg T) (\<lambda>f. mapify f |` C) a) |` C"
+      using f1 by (meson imageE)
+    have "C = dom (mapify (mm (Agg T) (\<lambda>f. mapify f |` C) a)) \<inter> C"
+      by (simp add: mapify_def)
+    then show ?thesis
+      using f2 by (metis dom_restrict)
+  qed
+  then have "finite (ran a)" using assms(1)
+    by (simp add: finite_ran)
+  then have "card (WH_res T C a) \<le> (T+1)*(card (ran a))^T"
+    using vec1[of "ran a"] vec2[of C a T] WH_res_def[of T C a] assms by auto
+  moreover have "card (ran a) \<le> card C"
+    using vec2[of C a T] assms by auto
+  ultimately show ?thesis using power_mono[of "card (ran a)" "card C" T] Tgtz
+    by (meson le0 le_trans nat_mult_le_cancel_disj)
+qed
+
 
 (*
 definition "Agg_res_trans k C = {vm. (\<forall>t<k. \<exists>m\<in>((\<lambda>h. restrict_map (mapify h) C) ` B). \<forall>x. (case vm x of Some z \<Rightarrow> Some (vec_nth z t) = m x | None \<Rightarrow> x\<notin>C))

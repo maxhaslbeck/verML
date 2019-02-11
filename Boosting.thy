@@ -509,13 +509,10 @@ proof
   show "card {- 1::real, 1} = 2" by auto
   show "\<forall>h x. h \<in> B \<longrightarrow> h x \<in> {- 1, 1}"
     by (meson allboost_axioms allboost_def)
-  show  "B \<noteq> {}" "infinite X" using allboost_axioms allboost_def by auto
+  show  "B \<noteq> {}" "infinite X" using allboost_axioms allboost_def[of X] by auto
 qed
 
-lemma baux: "(\<lambda>h. h |` C) ` baseclass.H_map = (\<lambda>h. restrict_map (mapify h) C) ` B" by auto
 
-lemma "baseclass.VCDim = Some d \<Longrightarrow> 0 < d \<Longrightarrow> d \<le> card C \<Longrightarrow> C \<subseteq> X \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` B) \<le> (d+1)*(card C)^d"
-  using baseclass.resforboost[of C d] baux by auto
 
 
 lemma aux1: "BOOST S y oh \<Longrightarrow> BOOST.hyp S y oh k = (\<lambda>i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
@@ -677,7 +674,7 @@ qed
 
 
 definition "Agg_res k C = ((\<lambda>h. restrict_map (mapify h) C) ` (Agg k))"
-definition "WH_res k C agg = ((\<lambda>h. restrict_map (mapify h) (ran agg)) ` (WH k))"
+definition "WH_res k agg = ((\<lambda>h. restrict_map (mapify h) (ran agg)) ` (WH k))"
 
 lemma aux630: "movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) i else 0) \<in> myroom k" 
     using lt_valid[of k "(\<lambda>t. oh (BOOST.D S y oh t) i)"] myroom_def[of k] vec_lambda_inverse by auto
@@ -724,8 +721,8 @@ qed
 
 lemma
   assumes "finite C" "a\<in>Agg_res T C" "T \<le> card C" "T \<le> card (ran a)"
-  shows "card (WH_res T C a) \<le> (T+1)*(card C)^T"
-  using vec1[of "ran a"] vec2[of C a T] WH_res_def[of T C a] assms
+  shows final2: "card (WH_res T a) \<le> (T+1)*(card C)^T"
+  using vec1[of "ran a"] vec2[of C a T] WH_res_def[of T a] assms
 proof -
   have "dom a = C" using assms(2) Agg_res_def mapify_def 
   proof -
@@ -743,8 +740,8 @@ proof -
   qed
   then have "finite (ran a)" using assms(1)
     by (simp add: finite_ran)
-  then have "card (WH_res T C a) \<le> (T+1)*(card (ran a))^T"
-    using vec1[of "ran a"] vec2[of C a T] WH_res_def[of T C a] assms by auto
+  then have "card (WH_res T a) \<le> (T+1)*(card (ran a))^T"
+    using vec1[of "ran a"] vec2[of C a T] WH_res_def[of T a] assms by auto
   moreover have "card (ran a) \<le> card C"
     using vec2[of C a T] assms by auto
   ultimately show ?thesis using power_mono[of "card (ran a)" "card C" T] Tgtz
@@ -807,8 +804,14 @@ lemma aux296: "(a::nat) \<le> b * c \<Longrightarrow> b \<le> c ^ (d::nat) \<Lon
 lemma mapify_restrict_alt: "mapify h |` C = (\<lambda>x. if x\<in>C then Some (h x) else None)"
   by (metis mapify_def restrict_in restrict_out)
 
+lemma baux: "(\<lambda>h. h |` C) ` baseclass.H_map = (\<lambda>h. restrict_map (mapify h) C) ` B" by auto
+
+lemma base1: "baseclass.VCDim = Some d \<Longrightarrow> 0 < d \<Longrightarrow> d \<le> card C \<Longrightarrow> C \<subseteq> X \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` B) \<le> (d+1)*(card C)^d"
+  using baseclass.resforboost[of C d] baux by auto
+
+
 lemma assumes "finite C"
-  shows "card (Agg_res k C) \<le> card ((\<lambda>h. restrict_map (mapify h) C) ` B) ^ k"
+  shows base2: "card (Agg_res k C) \<le> card ((\<lambda>h. restrict_map (mapify h) C) ` B) ^ k"
 proof(induct k)
   case 0
   let ?f = "(\<lambda>x. if x\<in>C then Some 0 else None)"
@@ -949,6 +952,17 @@ next
   then show ?case using aux296 c1 by auto
 qed
 
+
+lemma assumes "baseclass.VCDim = Some d" "0 < d" "d \<le> card C" "C \<subseteq> X" "finite C"
+  shows final1:"card (Agg_res k C) \<le> ((d+1)*(card C)^d) ^ k"
+proof -
+have "\<exists>n. card ((\<lambda>f. mapify f |` C) ` Agg k) \<le> n ^ k \<and> n \<le> Suc d * card C ^ d"
+  by (metis Agg_res_def One_nat_def add.right_neutral add_Suc_right assms(1) assms(2) assms(3) assms(4) assms(5) base1 base2)
+  then show ?thesis
+    by (metis Agg_res_def One_nat_def add.right_neutral add_Suc_right le0 le_trans power_mono)
+qed 
+
+
 (*
 lemma assumes "finite C"
   shows "card ({vm. (\<forall>x\<in>C. \<exists>z. vm x = Some z \<and> (\<forall>t<k. \<exists>m\<in>((\<lambda>h. restrict_map (mapify h) C) ` B).
@@ -1025,8 +1039,41 @@ qed
   oops
 
 *)
-lemma "\<Union>((\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k C a))) ` Agg_res k C)
-= {dum. \<exists>a\<in>(Agg_res k C). \<exists>w\<in>(WH_res k C a). dum = (w, a)}" 
+lemma "\<Union>((\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k a))) ` Agg_res k C)
+= {dum. \<exists>a\<in>(Agg_res k C). \<exists>w\<in>(WH_res k a). dum = (w, a)}" 
+  by auto
+
+lemma "\<Union>((\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k a))) ` Agg_res k C)
+= UNION (Agg_res k C) (\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k a)))" by auto
+                                 
+
+
+lemma assumes "finite (Agg_res T C)" "\<forall>a\<in> Agg_res T C. finite (WH_res T a)" "\<forall>a\<in> Agg_res T C. T \<le> card(ran a)"
+"finite C" "C \<subseteq> X" "T\<le> card C" "d \<le> card C" (*"T \<le> card (ran a)"*) "baseclass.VCDim = Some d" "0 < d"
+  shows "card (UNION (Agg_res T C) (\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res T a)))) \<le> ((T+1)*(card C)^T)*(((d+1)*(card C)^d) ^ T)"
+proof -
+  let ?f = "(\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res T a)))"
+  let ?S = "Agg_res T C"
+  have "\<forall>s\<in>?f ` ?S. finite s" using assms(2) by auto
+  moreover have "\<forall>s\<in>?S. \<forall>t\<in>?S. s \<noteq> t \<longrightarrow> ?f s \<inter> ?f t = {}" by auto
+  ultimately have "card (UNION ?S ?f) = (\<Sum>x\<in>?S. card (?f x))"
+    using card_Union_image assms(1) by auto
+  have "(\<And>i. i \<in> Agg_res T C \<Longrightarrow> card (WH_res T i) \<le> (T + 1) * card C ^ T)"
+    using final2[of C] assms(3,4,6) by auto
+  moreover have "(\<And>i. i \<in> Agg_res T C \<Longrightarrow> (card \<circ> (\<lambda>a. (\<lambda>w. (w, a)) ` WH_res T a)) i \<le> card (WH_res T i))"
+    using assms(2) card_image_le by auto
+  ultimately have "(\<And>i. i \<in> Agg_res T C \<Longrightarrow> (card \<circ> (\<lambda>a. (\<lambda>w. (w, a)) ` WH_res T a)) i \<le> (T + 1) * card C ^ T)"
+    by fastforce
+  then have "(\<Sum>x\<in>?S. card (?f x)) \<le> card ?S * ((T+1)*(card C)^T)"
+    using sum_bounded_above[of ?S "card \<circ> ?f" "((T+1)*(card C)^T)"] by auto
+  moreover have "card ?S \<le> (((d+1)*(card C)^d) ^ T)" using final1 assms(4,5,7,8,9) by auto
+  ultimately have "(\<Sum>x\<in>?S. card (?f x)) \<le> ((T+1)*(card C)^T)*(((d+1)*(card C)^d) ^ T)"
+    by (smt add_mult_distrib2 le_Suc_ex mult.commute trans_le_add1) 
+term card_Union_image
+
+lemma "finite S \<Longrightarrow> \<forall>x. card (g x) \<le> a \<Longrightarrow> (\<Sum>x\<in>S. card (g x)) \<le> (card S) * a"
+  using sum_bounded_above[of S "card \<circ> g"] by auto
+
 
 lemma "\<forall>a\<in>Agg_res k C. card (WH_res k C a) \<le> c1 \<and> finite (WH_res k C a)
 \<Longrightarrow> card (Agg_res k C) \<le> c2 \<and> finite (Agg_res k C)
