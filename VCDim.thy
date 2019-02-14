@@ -147,7 +147,7 @@ lemma assumes "x\<notin>F"
 
 
 lemma assumes "finite D"
-    shows "finite C \<Longrightarrow> card (allmaps C D) = (card D) ^ (card C)"
+    shows mappow: "finite C \<Longrightarrow> card (allmaps C D) = (card D) ^ (card C)"
 proof (induct rule: finite_induct)
   case empty
   then show ?case by (simp add: allmaps_e) 
@@ -196,6 +196,13 @@ lemma nnHmap: "H_map \<noteq> {}" using nnH by auto
 lemma restrictH_map_conv: "restrictH H_map C Y = (\<lambda>h. restrict_map h C) ` H_map" 
   using auxtemp domh ranh by blast
 
+lemma finite_restrict: "finite C \<Longrightarrow> finite ((\<lambda>h. restrict_map h C) ` H_map)"
+proof -
+  assume "finite C"
+  moreover have "finite Y" using cardY card_infinite by force
+  ultimately show ?thesis using restrictH_map_conv[of C] finiteres[of C Y H_map] by auto
+qed
+
 lemma assumes "H'\<noteq>{}" "H'\<subseteq>H_map"
     shows empty_shatted: "shatters H' {} D"
   unfolding shatters_def restrictH_def
@@ -216,7 +223,18 @@ definition "growth m = Max {k. \<exists>C\<subseteq>X. k = card (restrictH H_map
 lemma "{k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m} \<noteq> {}"
   by (smt Collect_empty_eq_bot bot_empty_eq empty_iff infinite_arbitrarily_large infx)
 
-
+lemma assumes "(\<forall>C\<subseteq>X. shatters H_map C Y \<longrightarrow> (card C) \<le> q)"
+  shows vcd_upper: "\<exists>d. VCDim = Some d \<and>  d \<le> q"
+proof -
+  have s1: "\<forall>k\<in>{m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}. k \<le> q"
+    using assms by auto
+  then have f1: "finite {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}"
+    using finite_nat_set_iff_bounded_le by blast 
+  then obtain d where "VCDim = Some d" using VCDim_def by auto
+  moreover from this have "d\<le>q" using s1 VCDim_def
+    by (metis (mono_tags, lifting) Max_in empty_iff f1 mem_Collect_eq nnHmap option.simps(1) subsetI vcd.empty_shatted vcd_axioms) 
+  ultimately show ?thesis by auto
+qed
 
 lemma assumes "VCDim = Some m" 
   shows doshatter: "(\<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y)"
@@ -576,7 +594,7 @@ qed
 
 
 
-lemma assumes "VCDim = Some d"
+(*lemma assumes "VCDim = Some d"
       and "m>0"
       and "C\<subseteq>X"
       and "card C = m"
@@ -605,16 +623,61 @@ proof -
     by (metis (no_types, lifting) card_mono f1 order_trans)
   then show "card (restrictH H_map C Y) \<le> sum (\<lambda>x. m choose x) {0..d}" using eq63 f3
     by (meson le_trans subsetI) 
+qed*)
+
+
+
+lemma binomial_mono: "n\<le>m \<Longrightarrow> n choose k \<le> m choose k" 
+proof(induction m)
+  case 0
+  then show ?case by auto
+next
+  case (Suc m)
+  then show ?case using bb
+    by (metis add_leD1 diff_diff_cancel diff_is_0_eq le_SucE nat_le_linear) 
+qed
+
+
+lemma assumes "VCDim = Some d"
+      and "C\<subseteq>X"
+      and f3: "finite C"
+      and "card C \<le> m"
+    shows superaux: "card (restrictH H_map C Y) \<le> sum (\<lambda>x. m choose x) {0..d}"
+proof -
+ have "\<forall>B\<subseteq>C. shatters H_map B Y \<longrightarrow> card B \<le> d" using assms noshatter
+    by (meson \<open>C \<subseteq> X\<close> not_le_imp_less order_trans)
+  then have f2: "{B. B\<subseteq>C \<and> shatters H_map B Y} \<subseteq> {B. B\<subseteq>C \<and> card B \<le> d}" by auto
+  have f1: "finite {B. B\<subseteq>C \<and> card B \<le> d}" using f3 by auto
+  have "card {B. B\<subseteq>C \<and> card B \<le> d} \<le> sum (\<lambda>x. m choose x) {0..d}"
+  proof (induction d)
+    case 0
+    have "{B. B \<subseteq> C \<and> card B \<le> 0} = {{}}"
+      using f3 infinite_super by fastforce
+    then show ?case by simp
+  next
+    case (Suc d)
+    have "{B. B \<subseteq> C \<and> card B \<le> Suc d} = {B. B \<subseteq> C \<and> card B \<le> d} \<union> {B. B \<subseteq> C \<and> card B = Suc d}" by auto
+    moreover have "{B. B \<subseteq> C \<and> card B \<le> d} \<inter> {B. B \<subseteq> C \<and> card B = Suc d} = {}" by auto
+    ultimately have "card {B. B \<subseteq> C \<and> card B \<le> Suc d} = card {B. B \<subseteq> C \<and> card B \<le> d} + card {B. B \<subseteq> C \<and> card B = Suc d}" using f1
+      by (simp add: f3 card_Un_disjoint)
+    moreover have "card {B. B \<subseteq> C \<and> card B = Suc d} \<le> m choose Suc d" using assms(4) binomial_mono f3
+      by (simp add: n_subsets)
+    ultimately show ?case using Suc.IH by auto
+  qed
+  from this f2 have "card {B. B\<subseteq>C \<and> shatters H_map B Y} \<le> sum (\<lambda>x. m choose x) {0..d}"
+    by (metis (no_types, lifting) card_mono f1 order_trans)
+  then show "card (restrictH H_map C Y) \<le> sum (\<lambda>x. m choose x) {0..d}" using eq63 f3
+    by (meson le_trans subsetI) 
 qed
 
 (*Sauers Lemma 6.10*)
 lemma assumes "VCDim = Some d"
       and "m>0"
-  shows lem610: "growth m \<le> sum (\<lambda>x. m choose x) {0..d}"
+  shows lem610: "growth m \<le> sum (\<lambda>x. m choose x) {0..d}" 
  (* using n_subsets growth_def eq63 noshatter *)
 proof -
-  have "\<forall>n \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}. n \<le> sum (\<lambda>x. m choose x) {0..d}" using superaux assms(1,2)
-    by fastforce
+  have "\<forall>n \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}. n \<le> sum (\<lambda>x. m choose x) {0..d}"
+    using superaux assms(1,2) card_gt_0_iff by blast
   then have "finite {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}"
     using finite_nat_set_iff_bounded_le by auto
   moreover have "{k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m} \<noteq> {}"
@@ -622,15 +685,15 @@ proof -
   ultimately have "growth m \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}"
     using Max_in growth_def by auto
   then show ?thesis
-    using assms(1) assms(2) vcd.superaux vcd_axioms by fastforce
+    using \<open>\<forall>n\<in>{k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}. n \<le> sum ((choose) m) {0..d}\<close> by blast
 qed
 
 
 lemma growthgtone: "VCDim = Some d \<Longrightarrow> m \<ge> 1 \<Longrightarrow> growth m \<ge> 1"
 proof -
   assume a1: "m \<ge> 1" "VCDim = Some d"
-  then have "\<forall>n \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}. n \<le> sum (\<lambda>x. m choose x) {0..d}" using superaux
-    by fastforce
+  then have "\<forall>n \<in> {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}. n \<le> sum (\<lambda>x. m choose x) {0..d}" using superaux card_gt_0_iff
+    by (smt binomial_eq_0_iff card_infinite choose_one le_eq_less_or_eq mem_Collect_eq not_less) 
   then have f2: "finite {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}"
     using finite_nat_set_iff_bounded_le by auto
   obtain C where f1: "card C = m" "C\<subseteq>X" "finite C" using infx infinite_arbitrarily_large by blast
@@ -687,17 +750,79 @@ proof -
   finally show "m\<ge>1 \<Longrightarrow> sqrt(m) \<le> m" by simp
 qed
 
+
+
+lemma aux124: "m\<ge>d \<Longrightarrow> 1 < d \<Longrightarrow> sum (\<lambda>x. m choose x) {0..d} \<le> m^d"
+proof(induction d)
+  case 0
+  then show ?case by auto
+next
+  case c1: (Suc d)
+  then show ?case
+  proof(cases "1<d")
+    case True
+    then have s1: "sum ((choose) m) {0..d} \<le> m ^ d" using c1 by auto
+    have s2: "sum ((choose) m) {0..Suc d} = sum ((choose) m) {0..d} + real (m choose Suc d)" by auto
+    have "(m choose Suc d) = (m choose d)* real (m-d)/(Suc d)"
+      by (metis Groups.mult_ac(2) binomial_absorb_comp binomial_absorption 
+          nat.simps(3) nonzero_mult_div_cancel_left of_nat_eq_0_iff of_nat_mult)
+    moreover have "(m-d)/(Suc d) \<le> (m-1)" using frac_le[of "m-d" "m-1" 1 "Suc d"]
+      using True by auto
+    moreover have "(m choose d) \<le>  m^d"
+      using binomial_le_pow c1.prems(1) by auto
+    ultimately have "real (m choose Suc d) \<le> (m-1) *  m^d" 
+      using mult_mono[of "real (m - d) / real (Suc d)" "real (m - 1)" 
+           "real (m choose d)" "real m ^ d"] by (simp add: mult.commute) 
+    then have "sum ((choose) m) {0..Suc d} \<le> m^d + (m-1)*m^d" using s1 s2
+      by linarith 
+    then show ?thesis
+      using Suc_le_eq c1.prems(1) mult_eq_if by auto 
+  next
+    case False
+    from this c1(3) have d1: "d = 1" by auto
+    have m2: "2 \<le> m" using c1(2) d1 by auto
+    from d1 have "sum ((choose) m) {0..Suc d} = (m choose 0) + (m choose 1) + (m choose 2)"
+      by (simp add: numeral_2_eq_2)
+    also have "... = 1 + m + real (m choose 2)" using choose_one binomial_n_0 by auto
+    also have "m choose 2 = m*(m-1)/ 2"
+      by (metis (no_types, hide_lams) Suc_1 binomial_absorption choose_one
+          nonzero_mult_div_cancel_left of_nat_mult of_nat_numeral zero_neq_numeral) 
+    also have "real (1 + m) + real (m * (m - 1)) / 2 = 1 + 2*m/2 + (m-1)*m/2" by auto
+    finally have s1: "sum ((choose) m) {0..Suc d} = 1 +  (m+1)*m/2"
+      using mult_eq_if by auto
+    have "1 + (m+1) \<le> 2*m" using m2
+      apply (induction m rule: nat_induct_at_least)
+      by auto
+    then have "1/2 + (m+1)/2 \<le> m"
+      by (simp add: add_divide_distrib)
+    moreover have "1/m \<le> 1/2" using m2 by auto
+    ultimately have "1/m + (m+1)/2 \<le> m" by auto
+    then have "(1/m + (m+1)/2)*m \<le> real m * real m" using real_mult_le_cancel_iff1 m2 by auto
+    then have "1/m * real m + (m+1)/2 * real m \<le> real m * real m"
+      by (simp add: distrib_left mult.commute)
+    then have "1 +  (m+1)*m/2 \<le> real m * real m"
+      by (metis add_is_0 m2 nat_le_iff_add nonzero_mult_div_cancel_right of_nat_eq_0_iff
+          of_nat_mult one_add_one one_neq_zero times_divide_eq_left) 
+    then have "1 + (m+1)*m/2 \<le> m^2"
+      by (simp add: power2_eq_square)
+    then show ?thesis using s1 d1
+      by (metis Suc_1 of_nat_le_iff) 
+  qed
+qed
+  
+
+
+
 lemma aux123: "m\<ge>d \<Longrightarrow> sum (\<lambda>x. m choose x) {0..d} \<le> (d+1)*m^d"
    using sum_bounded_above[of "{0..d}" "(\<lambda>x. m choose x)" "m^d"]
    by (smt One_nat_def add.right_neutral add_Suc_right atLeastAtMost_iff binomial_le_pow binomial_n_0 card_atLeastAtMost diff_zero
        le_antisym le_neq_implies_less le_trans less_one nat_le_linear nat_zero_less_power_iff neq0_conv of_nat_id power_increasing_iff)
 
-lemma assumes "C\<subseteq>X" "0<d" "VCDim = Some d" "d \<le> card C"
-  shows resforboost: "card ((\<lambda>h. h |` C) ` H_map) \<le> (d+1)*(card C)^d"
-    using restrictH_map_conv[of C] aux123[of d] superaux[of d _ C]  assms
-    by (metis (no_types, lifting) le_trans not_less) 
+lemma assumes "C\<subseteq>X" "1<d" "VCDim = Some d" "d \<le> m" "card C \<le> m" "finite C"
+  shows resforboost: "card ((\<lambda>h. h |` C) ` H_map) \<le> m^d"
+  using restrictH_map_conv[of C] aux124[of d] superaux[of d C m] assms by fastforce
 
-    
+
   lemma assumes "set_pmf D \<subseteq> X"
       and "f ` X = Y"
       and "\<delta>\<in>{x.0<x\<and>x<1}"

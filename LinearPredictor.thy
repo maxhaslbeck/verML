@@ -223,8 +223,10 @@ proof -
 
 locale linpred =
   fixes d::nat
-  assumes dgz: "d>0"
+  assumes dgone: "d>1"
 begin
+
+lemma dgz: "d>0" using dgone by auto
 
 interpretation vcd "myroom d" "{True, False}" "all_linear (myroom d)"
 proof
@@ -248,8 +250,8 @@ qed
 
 lemma vaux: "(\<lambda>h. h |` C) ` H_map = (\<lambda>h. restrict_map (mapify h) C) ` (all_linear (myroom d))" by auto
 
-lemma vmain: "d \<le> card C \<Longrightarrow> C \<subseteq> (myroom d) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (all_linear (myroom d))) \<le> (d+1)*(card C)^d"
-  using resforboost[of C d] vaux linvcd dgz by auto
+lemma vmain: "card C \<le> m \<Longrightarrow> finite C \<Longrightarrow> d \<le> m \<Longrightarrow> C \<subseteq> (myroom d) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (all_linear (myroom d))) \<le> m^d"
+  using resforboost[of C d m] vaux linvcd dgone by auto
 
 lemma vfinite: "finite C \<Longrightarrow> finite ((\<lambda>h. restrict_map (mapify h) C) ` (all_linear (myroom d)))"
   using finiteres[of C "{True, False}" "H_map"] restrictH_map_conv[of C] vaux[of C] by simp

@@ -75,7 +75,7 @@ proof -
   ultimately show ?thesis unfolding linear_predictor_def by auto
 qed
 
-    
+(*    
     
 lemma "linear_predictor (vec_lambda (\<lambda>t. (if t<k then w t else 0))) \<in> all_linear(myroom k)"
   using all_linear_def aux34 myroom_def by auto
@@ -87,190 +87,7 @@ lemma "finite M1 \<Longrightarrow> finite M2 \<Longrightarrow> card ((\<lambda>(
   by (metis Sigma_cong)
 
 
-lemma "card ({vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }) = card Hb ^ k"
-proof(induct k)
-  case 0
-  obtain f::"('a\<Rightarrow>movec)" where o1: "\<forall>x. f x = 0" by fastforce
-  then have s1: "f\<in>{vm. (\<forall>t<0. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>0. \<forall>x. movec.vec_nth (vm x) t = 0)}"
-    by simp 
-  have "\<forall>g\<in>{vm. (\<forall>t<0. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>0. \<forall>x. movec.vec_nth (vm x) t = 0)}.  \<forall>x. g x = 0"
-    using movec_eq_iff by auto
-  then have "\<forall>g\<in>{vm. (\<forall>t<0. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>0. \<forall>x. movec.vec_nth (vm x) t = 0)}.  g = f"
-    using o1 by auto
-  then have "card {vm. (\<forall>t<0. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>0. \<forall>x. movec.vec_nth (vm x) t = 0)} = 1"
-    using s1 by (simp add: only_one)  
-  then show ?case by auto 
-next
-  case (Suc k)
-  have "{vm. (\<forall>t<Suc k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>Suc k. \<forall>x. movec.vec_nth (vm x) t = 0)} \<subseteq>
-     (\<lambda>(vm, g). (\<lambda>x. upd_movec (vm x) k (g x))) ` ({vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)} \<times> Hb)"
-  proof (auto)
-    fix vm
-    assume a1: "\<forall>t<Suc k. \<exists>m\<in>Hb. \<forall>xa. movec.vec_nth (vm xa) t = m xa"
-            "\<forall>t\<ge>Suc k. \<forall>xa. movec.vec_nth (vm xa) t = 0"
-    let ?kM = "{vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)}"
-    let ?wm = "(\<lambda>x. upd_movec (vm x) k 0)"
-    have "?wm\<in>?kM" sorry
-    obtain h where o1: "h\<in>Hb" "\<forall>x. vec_nth (vm x) k = h x" using a1 by auto
-
-    have "\<exists>wm\<in>{vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)}. \<exists>h\<in>Hb.
-   vm = (\<lambda>(vm, g) x. movec.vec_lambda (\<lambda>k'. if k' = k then g x else movec.vec_nth (vm x) k')) (wm, h)"
-      sorry
-    then show "vm \<in> (\<lambda>(vm, g) x. movec.vec_lambda (\<lambda>k'. if k' = k then g x else movec.vec_nth (vm x) k')) `
-       ({vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. movec.vec_nth (vm x) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. movec.vec_nth (vm x) t = 0)} \<times> Hb)"
-      by auto
-  qed
-  then show ?case sorry
-qed
-
-
-lemma aux857: "(x::real) \<ge> 1 \<Longrightarrow> z \<ge> 0 \<Longrightarrow> x+z \<le> x*(1+z)"
-proof -
-  assume "x\<ge>1" "z\<ge>0"
-  moreover from this have "x*z \<ge> z"
-    by (metis mult_cancel_right2 ordered_comm_semiring_class.comm_mult_left_mono
-        semiring_normalization_rules(7))
-  ultimately show "x+z \<le> x*(1+z)"
-    by (simp add: distrib_left)
-qed
-
-
-lemma two_le_e: "(2::real) < exp 1" using  exp_less_mono
-  by (metis exp_ge_add_one_self less_eq_real_def ln_2_less_1 ln_exp numeral_Bit0 numeral_One) 
-
-
-lemma ln_bound_linear: "x>0 \<Longrightarrow> ln (x::real) \<le> x*(exp (-1))"
-proof -
-  fix x::real
-  assume "x>0"
-  have f1: "\<forall>r. r + ln x = ln (x *\<^sub>R exp r)"
-    by (simp add: \<open>0 < x\<close> ln_mult)
-  have "\<forall>r ra. (ra::real) + (- ra + r) = r"
-    by simp
-  then have "exp (ln(x)) \<le> exp(x*(exp(-1)))"
-    using f1 by (metis (no_types) \<open>0 < x\<close> exp_ge_add_one_self exp_gt_zero
-                 exp_le_cancel_iff exp_ln mult_pos_pos real_scaleR_def)
-  then show "ln x \<le> x * exp (- 1)"
-    by blast
-qed
-
-lemma ln_bound_linear2: "x>0 \<Longrightarrow> (exp 1) * ln (x::real) \<le> x"
-  by (metis (no_types, hide_lams) add.inverse_inverse divide_inverse exp_gt_zero exp_minus
-      ln_bound_linear mult.commute pos_divide_le_eq)
-  
-lemma ln_bound_linear3: "x>0 \<Longrightarrow> a\<le>exp 1 \<Longrightarrow> a > 0 \<Longrightarrow> a * ln (x::real) \<le> x"
-proof -
-assume a1: "0 < x"
-assume a2: "0 < a"
-  assume a3: "a \<le> exp 1"
-  have f4: "\<forall>r ra. (ra::real) \<le> r \<or> \<not> ra < r"
-    by (simp add: linear not_less)
-  then have f5: "\<forall>r. r \<le> x \<or> 0 < r"
-    using a1 by (meson dual_order.trans not_less)
-  have f6: "\<not> a < 0"
-    using f4 a2 by (meson not_less)
-  have f7: "\<forall>r ra rb. ((r::real) \<le> rb \<or> ra < r) \<or> rb < ra"
-    by (meson dual_order.trans not_less)
-  have f8: "\<forall>r. r < x \<or> \<not> r < exp 1 * ln x"
-    using a1 by (meson dual_order.trans ln_bound_linear2 not_less)
-  have f9: "\<forall>r. \<not> (r::real) < r"
-by blast
-have "\<not> exp 1 < a"
-  using a3 not_less by blast
-  then show ?thesis
-    using f9 f8 f7 f6 f5 f4 by (metis (no_types) mult_less_cancel_right zero_less_mult_iff)
-qed
-    
-
-
-lemma fixes a b::real
-  assumes "b\<ge>0"
-    and "a\<ge>sqrt(exp 1)"
-  shows aux937: "(2*a*ln(a) + b) - a * ln (2*a*ln(a) + b) > 0"
-proof -
-  have "2*ln(sqrt(exp 1)) = 1"
-    by (simp add: ln_sqrt)
-  then have f1: "2*ln(a) \<ge> 1" using assms(2)
-    by (smt ln_le_cancel_iff not_exp_le_zero real_sqrt_gt_zero) 
-  have f2: "a > 1"
-    using assms(2) less_le_trans less_numeral_extra(1) one_less_exp_iff real_sqrt_gt_1_iff by blast 
-  have f3: "b/a \<ge> 0" using assms(1) f2 by auto
-
-
-  have "2*ln(a) + b/a \<le> 2*ln(a)*(1+b/a)" using aux857 f1 f3 by auto
-  then have "ln (2*ln(a) + b/a) \<le> ln (2*ln(a)*(1+b/a))"
-    using f1 f3 by auto 
-  then have f4: "- a * ln(2*ln(a)+b/a) \<ge> - a * ln (2*ln(a)*(1+b/a))"
-    using f2 by auto
-  have f5: "ln(2*ln(a)*(1+b/a)) = ln(2*ln(a)) + ln(1+b/a)"
-    using f1 f3 ln_mult by auto
-
-  have "2*a*ln(a) + b = a*(2*ln(a)+b/a)"
-    using f2 by (simp add: distrib_left mult.commute)
-  moreover have "(2*ln(a)+b/a) > 0"
-    using f1 f3 by linarith 
-  ultimately have "ln (2*a*ln(a) + b) = ln a + ln(2*ln(a)+b/a)"
-    using ln_mult f2 by auto
-  then have "(2*a*ln(a) + b) - a * ln (2*a*ln(a) + b)
-              = 2*a*ln(a) + b - a * (ln a + ln(2*ln(a)+b/a))" by auto
-  also have "... = a*ln(a) + b - a * ln(2*ln(a)+b/a)"
-    by (simp add: distrib_left) 
-  also have "... \<ge>
-            a*ln(a) + b - a * ln(2*ln(a)*(1+b/a))" using f4 by auto
-
-  also have "a*ln(a) + b - a * ln(2*ln(a)*(1+b/a))
-           = a*ln(a) - a * ln(2*ln(a)) + b - a * ln(1+b/a)"
-    using f5 by (simp add: distrib_left)
-  finally have f6: "(2*a*ln(a) + b) - a * ln (2*a*ln(a) + b)
-                \<ge> a*ln(a) - a * ln(2*ln(a)) + b - a * ln(1+b/a)" by auto
-
-  have "b/a - a/a * ln(1+b/a) \<ge> 0" using f2 f3 ln_add_one_self_le_self by auto
-  then have f7: "b - a * ln(1+b/a) \<ge> 0" using f2
-    by (metis diff_ge_0_iff_ge dual_order.trans nonzero_mult_div_cancel_left not_le
-        real_mult_le_cancel_iff2 times_divide_eq_left times_divide_eq_right zero_le_one) 
-
-
-   have "a \<ge> exp 1 * ln a"
-    using f2 ln_bound_linear2 by auto
-   moreover have "exp 1 * ln a > 2 * ln a" using two_le_e f2
-     using ln_gt_zero mult_less_cancel_right_disj by blast 
-   ultimately have "ln a > ln (2 * ln a)" 
-     using f1 by (metis exp_gt_zero less_le_trans less_numeral_extra(1)
-         ln_less_cancel_iff not_numeral_less_zero zero_less_mult_iff)  
-   then have "(ln(a)-ln(2*ln(a)))>0" by auto
-   then have "a*ln(a) - a * ln(2*ln(a)) > 0"
-     using f2 by auto
-   from this f6 f7 show ?thesis by auto
-qed
-
-
-lemma fixes x a b::real
-  assumes "x>0" 
-      and "a>0"
-      and "x \<ge> 2*a*ln(a)"
-    shows aux683: "x \<ge> a* ln(x)" 
-proof (cases "a<sqrt(exp 1)")
-  case True
-  moreover have "(1::real) < exp 1"
-    by auto
-  ultimately have "a \<le> exp (1::real)"
-    by (metis eucl_less_le_not_le exp_gt_zero exp_half_le2 exp_ln linear ln_exp ln_sqrt not_less
-        order.trans real_sqrt_gt_zero two_le_e)
-  then show ?thesis using ln_bound_linear3 assms(1,2) by auto
-next
-  case c1: False
-  obtain b where "x = (2*a*ln(a) + b)" "b\<ge>0" using assms(3)
-    by (metis add.commute add.group_left_neutral add_mono_thms_linordered_field(1) diff_add_cancel
-        le_less_trans less_irrefl not_le of_nat_numeral real_scaleR_def)
-  moreover from this have "(2*a*ln(a) + b)  > a * ln (2*a*ln(a) + b)"
-    using aux937 c1 by auto
-  ultimately show ?thesis by auto
-qed
-
-lemma fixes x a::real
-  shows "0 < x \<Longrightarrow> 0 < a \<Longrightarrow> x < a* ln(x) \<Longrightarrow> x < 2*a*ln(a)"
-  using aux683 by (meson not_less)
-
+*)
 
 
 lemma splitf: "exp (- f (Suc t) i * y i) = ((exp (- f t i * y i)) * exp (-(w (t))*(h (t) i)*(y i)))"
@@ -484,7 +301,7 @@ assumes infx: "infinite X"
     and ohtwoclass: "\<forall>Ds. oh Ds \<in> B"
     and defonB: "\<forall>h x. h \<in> B \<longrightarrow> h x \<in> {- 1, 1}"
     and nonemptyB: "B \<noteq> {}"
-    and Tgtz: "0 < T"
+    and Tgtz: "1 < T"
 begin
 term BOOST.hyp
 
@@ -581,16 +398,19 @@ qed
 
 interpretation vectors: linpred T
 proof
-  show "0<T" using Tgtz by auto
+  show "1<T" using Tgtz by auto
 qed
 
-lemma vecmain: "T \<le> card C \<Longrightarrow> C \<subseteq> (myroom T) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (all_linear (myroom T))) \<le> (T+1)*(card C)^T"
+lemma vecmain: "finite C \<Longrightarrow> T \<le> m \<Longrightarrow> card C \<le> m \<Longrightarrow> C \<subseteq> (myroom T) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (all_linear (myroom T))) \<le> m^T"
   using vectors.vmain by auto
 
 lemma aux259: "A\<subseteq>D \<Longrightarrow> ((\<lambda>h. mapify h |` C) ` A) \<subseteq> ((\<lambda>h. mapify h |` C) ` D)" by auto
 
-lemma vec1: "finite C \<Longrightarrow> T \<le> card C \<Longrightarrow> C \<subseteq> (myroom T) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (WH T)) \<le> (T+1)*(card C)^T"
+lemma vec1: "finite C \<Longrightarrow> T \<le> m \<Longrightarrow> card C \<le> m \<Longrightarrow> C \<subseteq> (myroom T) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (WH T)) \<le> m^T"
   using vecmain WH_subset[of T] vectors.vfinite card_mono aux259[of "WH T" "all_linear (myroom T)"]
+  by (metis (mono_tags, lifting) le_trans)
+
+(*
 proof -
   assume a1: "C \<subseteq> myroom T"
   assume a2: "T \<le> card C"
@@ -602,7 +422,7 @@ proof -
 qed
 
 
-(*
+
 lemma "Agg k \<subseteq> {vm. (\<forall>t<k. \<exists>m\<in>B. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }"
   unfolding Agg_def
 proof auto
@@ -623,11 +443,11 @@ lemma aux4: "(\<lambda>(S,S').(\<lambda>v. linear_predictor (vec_lambda (\<lambd
 lemma aux5: "\<forall>S\<in>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}. BOOST S y oh" unfolding BOOST_def
   using allboost_axioms ohtwoclass ytwoclass defonB by auto
 
-lemma "H k \<subseteq> {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}"
+lemma final4: "H k \<subseteq> {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}"
   using aux4 aux3 aux01 aux02 aux5 by auto
 
 
-lemma "(\<lambda>h. restrict_map (mapify h) C) ` {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}  \<subseteq>
+lemma final3: "(\<lambda>h. restrict_map (mapify h) C) ` {boost. \<exists>w\<in>(WH k). \<exists>a\<in>(Agg k). boost = w \<circ> a}  \<subseteq>
       {map. \<exists>a\<in>((\<lambda>h. restrict_map (mapify h) C) ` (Agg k)). \<exists>w\<in>((\<lambda>h. restrict_map (mapify h) (ran a)) ` (WH k)).
        map = w \<circ>\<^sub>m a}"
 proof safe
@@ -679,8 +499,6 @@ definition "WH_res k agg = ((\<lambda>h. restrict_map (mapify h) (ran agg)) ` (W
 lemma aux630: "movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) i else 0) \<in> myroom k" 
     using lt_valid[of k "(\<lambda>t. oh (BOOST.D S y oh t) i)"] myroom_def[of k] vec_lambda_inverse by auto
 
-lemma "finite C \<Longrightarrow> T \<le> card C \<Longrightarrow> C \<subseteq> (myroom T) \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` (WH T)) \<le> (T+1)*(card C)^T"
-  oops
 
 
 
@@ -719,9 +537,10 @@ proof -
 qed
 
 
+
 lemma
-  assumes "finite C" "a\<in>Agg_res T C" "T \<le> card C" "T \<le> card (ran a)"
-  shows final2: "card (WH_res T a) \<le> (T+1)*(card C)^T"
+  assumes "finite C" "a\<in>Agg_res T C" "T \<le> card C"
+  shows final2: "card (WH_res T a) \<le> (card C)^T" "finite (WH_res T a)"
   using vec1[of "ran a"] vec2[of C a T] WH_res_def[of T a] assms
 proof -
   have "dom a = C" using assms(2) Agg_res_def mapify_def 
@@ -738,14 +557,16 @@ proof -
     then show ?thesis
       using f2 by (metis dom_restrict)
   qed
-  then have "finite (ran a)" using assms(1)
+  then have s10: "finite (ran a)" using assms(1)
     by (simp add: finite_ran)
-  then have "card (WH_res T a) \<le> (T+1)*(card (ran a))^T"
+  then have "card (WH_res T a) \<le> (card C)^T"
     using vec1[of "ran a"] vec2[of C a T] WH_res_def[of T a] assms by auto
   moreover have "card (ran a) \<le> card C"
     using vec2[of C a T] assms by auto
-  ultimately show ?thesis using power_mono[of "card (ran a)" "card C" T] Tgtz
+  ultimately show "card (WH_res T a) \<le> (card C)^T" using power_mono[of "card (ran a)" "card C" T] Tgtz
     by (meson le0 le_trans nat_mult_le_cancel_disj)
+  show "finite (WH_res T a)" using vectors.vfinite s10 WH_res_def WH_subset[of T]
+    by (metis aux259 infinite_super)
 qed
 
 
@@ -806,23 +627,28 @@ lemma mapify_restrict_alt: "mapify h |` C = (\<lambda>x. if x\<in>C then Some (h
 
 lemma baux: "(\<lambda>h. h |` C) ` baseclass.H_map = (\<lambda>h. restrict_map (mapify h) C) ` B" by auto
 
-lemma base1: "baseclass.VCDim = Some d \<Longrightarrow> 0 < d \<Longrightarrow> d \<le> card C \<Longrightarrow> C \<subseteq> X \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` B) \<le> (d+1)*(card C)^d"
-  using baseclass.resforboost[of C d] baux by auto
+lemma base1: "baseclass.VCDim = Some d \<Longrightarrow> 1 < d \<Longrightarrow> d \<le> card C \<Longrightarrow> C \<subseteq> X \<Longrightarrow> card ((\<lambda>h. restrict_map (mapify h) C) ` B) \<le> (card C)^d"
+  using baseclass.resforboost[of C d "card C"] baux card_gt_0_iff by force 
 
 
 lemma assumes "finite C"
-  shows base2: "card (Agg_res k C) \<le> card ((\<lambda>h. restrict_map (mapify h) C) ` B) ^ k"
+  shows base2: "card (Agg_res k C) \<le> card ((\<lambda>h. restrict_map (mapify h) C) ` B) ^ k \<and> finite (Agg_res k C)"
 proof(induct k)
   case 0
   let ?f = "(\<lambda>x. if x\<in>C then Some 0 else None)"
   let ?A = "((\<lambda>h. mapify h |` C) `
       (\<lambda>S' i. movec.vec_lambda (\<lambda>t. if t < 0 then oh (BOOST.D S' y oh t) i else 0)) `
       {S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S})"
-  have s0: "{S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S} \<noteq> {}" using infx sorry
+  have s0: "{S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S} \<noteq> {}"
+  proof -
+    obtain x where "x\<in>X" using infx by fastforce
+    then have "{x} \<in> {S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S}" by auto
+    then show ?thesis by auto
+  qed
   then have "(\<lambda>S' i. movec.vec_lambda (\<lambda>t. if t < 0 then oh (BOOST.D S' y oh t) i else 0)) `
       {S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S} = {(\<lambda>i. 0)}" using zero_movec_def by auto
-  then have "card ?A \<le> 1" using card_image_le by auto
-  then show ?case unfolding Agg_res_def Agg_def by auto 
+  moreover from this have "card ?A = 1" using card_image_le by auto
+  ultimately show ?case unfolding Agg_res_def Agg_def by auto
 next
   case c1: (Suc k)
   let ?SucA = "Agg_res (Suc k) C"
@@ -946,20 +772,22 @@ next
     then show "card ?SucA \<le> card ?A * card ?resB"
       using card_cartesian_product[of ?A ?resB] by auto
   qed
-  moreover have "finite ?resB" using assms sorry
-  moreover have "finite ?A" sorry
+  moreover have s20:"finite ?resB" using assms baseclass.finite_restrict[of C] by (simp add: baux) 
+  moreover have "finite ?A" using c1 by auto
   ultimately have "card ?SucA \<le> card ?A * card ?resB" by auto
-  then show ?case using aux296 c1 by auto
+  moreover have "finite(?A \<times> ?resB)" using s20 c1 by auto
+  moreover from this have "finite (?SucA)" using s1 using finite_surj by auto 
+  ultimately show ?case using aux296 c1 by auto
 qed
 
 
-lemma assumes "baseclass.VCDim = Some d" "0 < d" "d \<le> card C" "C \<subseteq> X" "finite C"
-  shows final1:"card (Agg_res k C) \<le> ((d+1)*(card C)^d) ^ k"
+lemma assumes "baseclass.VCDim = Some d" "1 < d" "d \<le> card C" "C \<subseteq> X" "finite C"
+  shows final1:"card (Agg_res k C) \<le> ((card C)^d) ^ k"
 proof -
-have "\<exists>n. card ((\<lambda>f. mapify f |` C) ` Agg k) \<le> n ^ k \<and> n \<le> Suc d * card C ^ d"
-  by (metis Agg_res_def One_nat_def add.right_neutral add_Suc_right assms(1) assms(2) assms(3) assms(4) assms(5) base1 base2)
+have "\<exists>n. card ((\<lambda>f. mapify f |` C) ` Agg k) \<le> n ^ k \<and> n \<le> card C ^ d"
+  by (metis Agg_res_def One_nat_def assms(1) assms(2) assms(3) assms(4) assms(5) base1 base2)
   then show ?thesis
-    by (metis Agg_res_def One_nat_def add.right_neutral add_Suc_right le0 le_trans power_mono)
+    by (metis Agg_res_def le0 le_trans power_mono)
 qed 
 
 
@@ -1038,82 +866,296 @@ qed
   using ohtwoclass defonB 
   oops
 
-*)
+
 lemma "\<Union>((\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k a))) ` Agg_res k C)
 = {dum. \<exists>a\<in>(Agg_res k C). \<exists>w\<in>(WH_res k a). dum = (w, a)}" 
   by auto
 
 lemma "\<Union>((\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k a))) ` Agg_res k C)
 = UNION (Agg_res k C) (\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k a)))" by auto
-                                 
 
 
-lemma assumes "finite (Agg_res T C)" "\<forall>a\<in> Agg_res T C. finite (WH_res T a)" "\<forall>a\<in> Agg_res T C. T \<le> card(ran a)"
-"finite C" "C \<subseteq> X" "T\<le> card C" "d \<le> card C" (*"T \<le> card (ran a)"*) "baseclass.VCDim = Some d" "0 < d"
-  shows "card (UNION (Agg_res T C) (\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res T a)))) \<le> ((T+1)*(card C)^T)*(((d+1)*(card C)^d) ^ T)"
+
+lemma "{map. \<exists>a\<in>Agg_res T C. \<exists>w\<in>WH_res T a. map = w \<circ>\<^sub>m a}
+   = (\<lambda>(w,a). w \<circ>\<^sub>m a) ` (UNION (Agg_res T C) (\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res T a))))" by auto
+*)
+
+lemma final5: "restrictH outer.H_map C {True, False} \<subseteq> {map. \<exists>a\<in>Agg_res T C. \<exists>w\<in>WH_res T a. map = w \<circ>\<^sub>m a}"
+proof -
+  have "restrictH outer.H_map C {True, False} = (\<lambda>h. restrict_map (mapify h) C) ` H T"
+    using outer.restrictH_map_conv by auto
+  also have "... \<subseteq> (\<lambda>h. mapify h |` C) ` {boost. \<exists>w\<in>WH T. \<exists>a\<in>Agg T. boost = w \<circ> a}" using image_mono final4[of T] by auto
+  finally show ?thesis  unfolding Agg_res_def WH_res_def using final3[of C T] by auto
+qed
+
+lemma assumes 
+"finite C" "C \<subseteq> X" "T\<le> card C" "d \<le> card C" (*"T \<le> card (ran a)"*) "baseclass.VCDim = Some d" "1 < d"
+  shows final10: "card (restrictH outer.H_map C {True, False}) \<le>  (card C)^((d+1)*T)"
 proof -
   let ?f = "(\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res T a)))"
   let ?S = "Agg_res T C"
-  have "\<forall>s\<in>?f ` ?S. finite s" using assms(2) by auto
+  have a1:"finite (Agg_res T C)" using base2 assms by auto
+  have a2:"\<forall>a\<in> Agg_res T C. finite (WH_res T a)" using final2(2) assms by auto
+  have sfin: "\<forall>s\<in>?f ` ?S. finite s" using a2 by auto
   moreover have "\<forall>s\<in>?S. \<forall>t\<in>?S. s \<noteq> t \<longrightarrow> ?f s \<inter> ?f t = {}" by auto
-  ultimately have "card (UNION ?S ?f) = (\<Sum>x\<in>?S. card (?f x))"
-    using card_Union_image assms(1) by auto
-  have "(\<And>i. i \<in> Agg_res T C \<Longrightarrow> card (WH_res T i) \<le> (T + 1) * card C ^ T)"
-    using final2[of C] assms(3,4,6) by auto
+  ultimately have s1: "card (UNION ?S ?f) = (\<Sum>x\<in>?S. card (?f x))"
+    using card_Union_image a1 by auto
+  have "(\<And>i. i \<in> Agg_res T C \<Longrightarrow> card (WH_res T i) \<le> (card C) ^ T)"
+    using final2[of C] assms(1,3) by auto
   moreover have "(\<And>i. i \<in> Agg_res T C \<Longrightarrow> (card \<circ> (\<lambda>a. (\<lambda>w. (w, a)) ` WH_res T a)) i \<le> card (WH_res T i))"
-    using assms(2) card_image_le by auto
-  ultimately have "(\<And>i. i \<in> Agg_res T C \<Longrightarrow> (card \<circ> (\<lambda>a. (\<lambda>w. (w, a)) ` WH_res T a)) i \<le> (T + 1) * card C ^ T)"
+    using a2 card_image_le by auto
+  ultimately have "(\<And>i. i \<in> Agg_res T C \<Longrightarrow> (card \<circ> (\<lambda>a. (\<lambda>w. (w, a)) ` WH_res T a)) i \<le>  (card C) ^ T)"
     by fastforce
-  then have "(\<Sum>x\<in>?S. card (?f x)) \<le> card ?S * ((T+1)*(card C)^T)"
-    using sum_bounded_above[of ?S "card \<circ> ?f" "((T+1)*(card C)^T)"] by auto
-  moreover have "card ?S \<le> (((d+1)*(card C)^d) ^ T)" using final1 assms(4,5,7,8,9) by auto
-  ultimately have "(\<Sum>x\<in>?S. card (?f x)) \<le> ((T+1)*(card C)^T)*(((d+1)*(card C)^d) ^ T)"
-    by (smt add_mult_distrib2 le_Suc_ex mult.commute trans_le_add1) 
-term card_Union_image
+  then have "(\<Sum>x\<in>?S. card (?f x)) \<le> card ?S * ((card C)^T)"
+    using sum_bounded_above[of ?S "card \<circ> ?f" "((card C)^T)"] by auto
+  moreover have "card ?S \<le> ((card C)^d) ^ T" using final1 assms(1,2,4,5,6) by auto
+  ultimately have "(\<Sum>x\<in>?S. card (?f x)) \<le> ((card C)^T)*(((card C)^d) ^ T)"
+    by (smt add_mult_distrib2 le_Suc_ex mult.commute trans_le_add1)
+  then have "card (UNION ?S ?f) \<le> ((card C)^T)*(((card C)^d) ^ T)" using s1 by auto
+  moreover have s5: "{map. \<exists>a\<in>Agg_res T C. \<exists>w\<in>WH_res T a. map = w \<circ>\<^sub>m a}
+   = (\<lambda>(w,a). w \<circ>\<^sub>m a) ` (UNION ?S ?f)" by auto
+  moreover have s6: "finite (UNION ?S ?f)" using sfin a1 by auto
+  ultimately have s2: "card ({map. \<exists>a\<in>Agg_res T C. \<exists>w\<in>WH_res T a. map = w \<circ>\<^sub>m a}) \<le> ((card C)^T)*(((card C)^d) ^ T)" 
+    using card_image_le[of "(UNION ?S ?f)" "(\<lambda>(w,a). w \<circ>\<^sub>m a)"] by auto
+  have "((card C)^d) ^ T = (card C)^(d*T)"
+    by (metis power_mult)
+  moreover have "(card C)^T * (card C)^(d*T) = (card C)^(T*(d+1))"
+    by (simp add: mult.commute power_add) 
+  ultimately have "((card C)^T)*(((card C)^d) ^ T) =  (card C)^((d+1)*T)"
+    by (metis semiring_normalization_rules(26) semiring_normalization_rules(3))
+  then have "card ({map. \<exists>a\<in>Agg_res T C. \<exists>w\<in>WH_res T a. map = w \<circ>\<^sub>m a}) \<le>  (card C)^((d+1)*T)" using s2 by auto
+  moreover have "finite ({map. \<exists>a\<in>Agg_res T C. \<exists>w\<in>WH_res T a. map = w \<circ>\<^sub>m a})" using s5 s6 by auto
+  moreover have "card (restrictH outer.H_map C {True, False}) \<le> card ({map. \<exists>a\<in>Agg_res T C. \<exists>w\<in>WH_res T a. map = w \<circ>\<^sub>m a})"
+    using calculation(2) card_mono final5[of C] by auto
+  ultimately show ?thesis by auto
+qed
 
-lemma "finite S \<Longrightarrow> \<forall>x. card (g x) \<le> a \<Longrightarrow> (\<Sum>x\<in>S. card (g x)) \<le> (card S) * a"
-  using sum_bounded_above[of S "card \<circ> g"] by auto
+(*A.1 start*)
 
-
-lemma "\<forall>a\<in>Agg_res k C. card (WH_res k C a) \<le> c1 \<and> finite (WH_res k C a)
-\<Longrightarrow> card (Agg_res k C) \<le> c2 \<and> finite (Agg_res k C)
- \<Longrightarrow> card (\<Union>((\<lambda>a. ((\<lambda>w. (w, a)) ` (WH_res k C a))) ` Agg_res k C))
- \<le> c1 * c2" 
-
-lemma "\<forall>a\<in>Agg_res k C. card (WH_res k C a) \<le> c1 \<and> finite (WH_res k C a)
-\<Longrightarrow> card (Agg_res k C) \<le> c2 \<and> finite (Agg_res k C)
- \<Longrightarrow> card {map. \<exists>a\<in>(Agg_res k C). \<exists>w\<in>(WH_res k C a). map = w \<circ>\<^sub>m a}
- \<le> c1 * c2" 
-
-lemma "{map. \<exists>a\<in>((\<lambda>h. restrict_map (mapify h) C) ` (Agg k)). \<exists>w\<in>((\<lambda>h. restrict_map (mapify h) (ran a)) ` (WH k)).
-       map = w \<circ>\<^sub>m a} = (\<lambda>a. ((\<lambda>h. restrict_map (mapify h) (ran a)) ` (WH k))) ` ((\<lambda>h. restrict_map (mapify h) C) ` (Agg k))"
-
-lemma "(\<lambda>(S,S') i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
-       (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))))`({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})
-\<subseteq>(\<lambda>(w, S'). (\<lambda>v. linear_predictor w v) \<circ> (\<lambda>i. (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S' y oh t) i) else 0)))))
-   ` (((\<lambda>S. (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0)))) ` {S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})\<times>{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S})"
-
-
-lemma "(\<lambda>S i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
-             (vec_lambda (\<lambda>t. (if t<k then (oh (BOOST.D S y oh t) i) else 0)))))`{S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}
-\<subseteq> (\<lambda>(S,b) i. (linear_predictor (vec_lambda (\<lambda>t. (if t<k then BOOST.w S y oh t else 0))) 
-             (vec_lambda (\<lambda>t. (if t<k then (b i) else 0)))))`({S. S\<subseteq>X \<and> S\<noteq>{} \<and> finite S}\<times>B)"
-proof
-  fix x
-  assume "x \<in> (\<lambda>S i. linear_predictor (movec.vec_lambda (\<lambda>t. if t < k then BOOST.w S y oh t else 0))
-                     (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) i else 0))) `
-             {S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S}"
-  then obtain S where "S\<in>{S. S \<subseteq> X \<and> S \<noteq> {} \<and> finite S}" "x = (\<lambda>S i. linear_predictor (movec.vec_lambda (\<lambda>t. if t < k then BOOST.w S y oh t else 0))
-                     (movec.vec_lambda (\<lambda>t. if t < k then oh (BOOST.D S y oh t) i else 0))) S" by auto
-  obtain b where "b\<in>B" "\<forall>t. b = oh (BOOST.D S y oh t)" using ohtwoclass nonemptyB 
+lemma aux857: "(x::real) \<ge> 1 \<Longrightarrow> z \<ge> 0 \<Longrightarrow> x+z \<le> x*(1+z)"
+proof -
+  assume "x\<ge>1" "z\<ge>0"
+  moreover from this have "x*z \<ge> z"
+    by (metis mult_cancel_right2 ordered_comm_semiring_class.comm_mult_left_mono
+        semiring_normalization_rules(7))
+  ultimately show "x+z \<le> x*(1+z)"
+    by (simp add: distrib_left)
+qed
 
 
-lemma "{vm. (\<forall>t<k. \<exists>m\<in>Hb. \<forall>x. vec_nth (vm (x::'a)) t = m x) \<and> (\<forall>t\<ge>k. \<forall>x. vec_nth (vm x) t = 0) }"
+lemma two_le_e: "(2::real) < exp 1" using  exp_less_mono
+  by (metis exp_ge_add_one_self less_eq_real_def ln_2_less_1 ln_exp numeral_Bit0 numeral_One) 
+
+
+lemma ln_bound_linear: "x>0 \<Longrightarrow> ln (x::real) \<le> x*(exp (-1))"
+proof -
+  fix x::real
+  assume "x>0"
+  have f1: "\<forall>r. r + ln x = ln (x *\<^sub>R exp r)"
+    by (simp add: \<open>0 < x\<close> ln_mult)
+  have "\<forall>r ra. (ra::real) + (- ra + r) = r"
+    by simp
+  then have "exp (ln(x)) \<le> exp(x*(exp(-1)))"
+    using f1 by (metis (no_types) \<open>0 < x\<close> exp_ge_add_one_self exp_gt_zero
+                 exp_le_cancel_iff exp_ln mult_pos_pos real_scaleR_def)
+  then show "ln x \<le> x * exp (- 1)"
+    by blast
+qed
+
+lemma ln_bound_linear2: "x>0 \<Longrightarrow> (exp 1) * ln (x::real) \<le> x"
+  by (metis (no_types, hide_lams) add.inverse_inverse divide_inverse exp_gt_zero exp_minus
+      ln_bound_linear mult.commute pos_divide_le_eq)
+  
+lemma ln_bound_linear3: "x>0 \<Longrightarrow> a<exp 1 \<Longrightarrow> a > 0 \<Longrightarrow> a * ln (x::real) < x"
+  by (metis less_eq_real_def less_le_trans ln_bound_linear2 mult_less_cancel_right mult_zero_left not_less) 
+    
+
+
+lemma fixes a b::real
+  assumes "b\<ge>0"
+    and "a\<ge>sqrt(exp 1)"
+  shows aux937: "(2*a*ln(a) + b) - a * ln (2*a*ln(a) + b) > 0"
+proof -
+  have "2*ln(sqrt(exp 1)) = 1"
+    by (simp add: ln_sqrt)
+  then have f1: "2*ln(a) \<ge> 1" using assms(2)
+    by (smt ln_le_cancel_iff not_exp_le_zero real_sqrt_gt_zero) 
+  have f2: "a > 1"
+    using assms(2) less_le_trans less_numeral_extra(1) one_less_exp_iff real_sqrt_gt_1_iff by blast 
+  have f3: "b/a \<ge> 0" using assms(1) f2 by auto
+
+
+  have "2*ln(a) + b/a \<le> 2*ln(a)*(1+b/a)" using aux857 f1 f3 by auto
+  then have "ln (2*ln(a) + b/a) \<le> ln (2*ln(a)*(1+b/a))"
+    using f1 f3 by auto 
+  then have f4: "- a * ln(2*ln(a)+b/a) \<ge> - a * ln (2*ln(a)*(1+b/a))"
+    using f2 by auto
+  have f5: "ln(2*ln(a)*(1+b/a)) = ln(2*ln(a)) + ln(1+b/a)"
+    using f1 f3 ln_mult by auto
+
+  have "2*a*ln(a) + b = a*(2*ln(a)+b/a)"
+    using f2 by (simp add: distrib_left mult.commute)
+  moreover have "(2*ln(a)+b/a) > 0"
+    using f1 f3 by linarith 
+  ultimately have "ln (2*a*ln(a) + b) = ln a + ln(2*ln(a)+b/a)"
+    using ln_mult f2 by auto
+  then have "(2*a*ln(a) + b) - a * ln (2*a*ln(a) + b)
+              = 2*a*ln(a) + b - a * (ln a + ln(2*ln(a)+b/a))" by auto
+  also have "... = a*ln(a) + b - a * ln(2*ln(a)+b/a)"
+    by (simp add: distrib_left) 
+  also have "... \<ge>
+            a*ln(a) + b - a * ln(2*ln(a)*(1+b/a))" using f4 by auto
+
+  also have "a*ln(a) + b - a * ln(2*ln(a)*(1+b/a))
+           = a*ln(a) - a * ln(2*ln(a)) + b - a * ln(1+b/a)"
+    using f5 by (simp add: distrib_left)
+  finally have f6: "(2*a*ln(a) + b) - a * ln (2*a*ln(a) + b)
+                \<ge> a*ln(a) - a * ln(2*ln(a)) + b - a * ln(1+b/a)" by auto
+
+  have "b/a - a/a * ln(1+b/a) \<ge> 0" using f2 f3 ln_add_one_self_le_self by auto
+  then have f7: "b - a * ln(1+b/a) \<ge> 0" using f2
+    by (metis diff_ge_0_iff_ge dual_order.trans nonzero_mult_div_cancel_left not_le
+        real_mult_le_cancel_iff2 times_divide_eq_left times_divide_eq_right zero_le_one) 
+
+
+   have "a \<ge> exp 1 * ln a"
+    using f2 ln_bound_linear2 by auto
+   moreover have "exp 1 * ln a > 2 * ln a" using two_le_e f2
+     using ln_gt_zero mult_less_cancel_right_disj by blast 
+   ultimately have "ln a > ln (2 * ln a)" 
+     using f1 by (metis exp_gt_zero less_le_trans less_numeral_extra(1)
+         ln_less_cancel_iff not_numeral_less_zero zero_less_mult_iff)  
+   then have "(ln(a)-ln(2*ln(a)))>0" by auto
+   then have "a*ln(a) - a * ln(2*ln(a)) > 0"
+     using f2 by auto
+   from this f6 f7 show ?thesis by auto
+qed
+
+
+lemma fixes x a b::real
+  assumes "x>0" 
+      and "a>0"
+      and "x \<ge> 2*a*ln(a)"
+    shows aux683: "x > a* ln(x)" 
+proof (cases "a<sqrt(exp 1)")
+  case True
+  moreover have "(1::real) < exp 1"
+    by auto
+  ultimately have "a < exp (1::real)"
+    by (metis eucl_less_le_not_le exp_gt_zero exp_half_le2 exp_ln linear ln_exp ln_sqrt not_less
+        order.trans real_sqrt_gt_zero two_le_e)
+  then show ?thesis using ln_bound_linear3 assms(1,2) by auto
+next
+  case c1: False
+  obtain b where "x = (2*a*ln(a) + b)" "b\<ge>0" using assms(3)
+    by (metis add.commute add.group_left_neutral add_mono_thms_linordered_field(1) diff_add_cancel
+        le_less_trans less_irrefl not_le of_nat_numeral real_scaleR_def)
+  moreover from this have "(2*a*ln(a) + b)  > a * ln (2*a*ln(a) + b)"
+    using aux937 c1 by auto
+  ultimately show ?thesis by auto
+qed
+
+lemma fixes x a::real
+  shows lemA1: "0 < x \<Longrightarrow> 0 < a \<Longrightarrow> x \<le> a* ln(x) \<Longrightarrow> x < 2*a*ln(a)"
+  using aux683 by (meson not_less)
+
+(*A.1 end*)
 
 
 
-find_theorems name:allboost
+lemma assumes "shatters outer.H_map C {True, False}"
+"finite C" "C \<subseteq> X" "T\<le> card C" "d \<le> card C" (*"T \<le> card (ran a)"*) "baseclass.VCDim = Some d" "1 < d"
+  shows final11:"card C < 2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))"
+proof -
+  have "card (restrictH outer.H_map C {True, False}) = 2 ^ (card C)" using mappow assms(1,2) shatters_def
+    by (metis finite.emptyI finite_insert outer.cardY)
+  then have "2 ^ (card C) \<le> (card C)^((d+1)*T)" using final10 assms
+    by fastforce
+  moreover have s1: "0 < (card C)^((d+1)*T)"
+    using assms(5) assms(7) by auto
+  moreover have "0 < (2::nat) ^ (card C)" by auto
+  ultimately have "ln (2 ^ (card C)) \<le> ln((card C)^((d+1)*T))"
+    using ln_le_cancel_iff by (metis numeral_power_le_of_nat_cancel_iff
+              of_nat_0_less_iff of_nat_numeral of_nat_zero_less_power_iff)
+  then have "real (card C) * ln(2) \<le> real ((d+1)*T) * ln((card C))"
+    using ln_realpow s1 by auto
+  then have "real (card C) \<le> real ((d+1)*T)/ln(2) * ln((card C))"
+    using frac_le[of "real (card C) * ln(2)" "real ((d+1)*T) * ln((card C))" "ln(2)" "ln(2)"] by auto
+  moreover have "0<real(card C)"
+    using assms(4) vectors.dgz by linarith
+  moreover have "0<real ((d+1)*T)/ln(2)"
+  proof -
+    have f1: "\<not> ln ((1::real) + 1) < 0" by force
+    have "(0::real) < ln (1 + 1)" by simp
+    then show ?thesis using f1 by (metis add_is_0 add_mult_distrib divide_eq_0_iff divide_less_cancel
+         less_nat_zero_code linorder_neqE_nat nat_mult_1 of_nat_0_less_iff one_add_one vectors.dgone)
+  qed
+  ultimately have "real (card C) < 2 * real ((d+1)*T)/ln(2) * ln(real ((d+1)*T)/ln(2))"
+    using lemA1[of "real (card C)" "real ((d+1)*T)/ln(2)"] by auto
+  then show ?thesis by auto
+qed
 
-term outer.H_map
+lemma assumes "shatters outer.H_map C {True, False}" 
+(*"finite C"  "T\<le> card C" "d \<le> card C"*)  "baseclass.VCDim = Some d" "1 < d" "C \<subseteq> X"
+shows final12: "(card C) < 2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))"
+proof -
+  have "3\<le>(d+1)*T" using vectors.dgone assms(3)
+    by (metis add_mono_thms_linordered_field(4) discrete less_1_mult less_imp_le_nat
+        numeral_Bit1 numeral_One semiring_normalization_rules(3))
+  then have "ln(2)*3\<le>(d+1)*T" using ln_2_less_1 by linarith 
+  then have "3\<le>(((d+1)*T)/ln(2))" using le_divide_eq_numeral(1) by fastforce
+  then have "1\<le>ln(((d+1)*T)/ln(2))" using ln3_gt_1
+    by (metis (no_types, hide_lams) add.right_neutral add_0_left add_mono_thms_linordered_field(4)
+        less_trans linorder_not_less ln_less_cancel_iff rel_simps(51))
+  then have "ln(2)\<le>2*ln(((d+1)*T)/ln(2))" using ln_2_less_1 by linarith
+  then have s1: "1 \<le> 2/ln(2)*ln(((d+1)*T)/ln(2))" using le_divide_eq_numeral(1) by fastforce
+  moreover have "d\<le>(d+1)*T" using vectors.dgone by (metis (full_types) le0 le_add_same_cancel1
+        less_or_eq_imp_le mult.commute mult.left_neutral mult_le_mono)
+  moreover have s2: "0 \<le> real ((d + 1) * T)" by auto
+  ultimately have s3: "d \<le> ((d+1)*T)* 2/ln(2) * ln(((d+1)*T)/ln(2))" 
+    using mult_mono[of d "(d+1)*T" 1 "2/ln(2)*ln(((d+1)*T)/ln(2))"]
+  proof -
+    have "real d \<le> real ((d + 1) * T)"
+      by (metis \<open>d \<le> (d + 1) * T\<close> of_nat_mono)
+    then show ?thesis
+      by (metis (no_types) \<open>0 \<le> real ((d + 1) * T)\<close> \<open>1 \<le> 2 / ln 2 * ln (real ((d + 1) * T) / ln 2)\<close> 
+          \<open>\<lbrakk>real d \<le> real ((d + 1) * T); 1 \<le> 2 / ln 2 * ln (real ((d + 1) * T) / ln 2); 0 \<le> real ((d + 1) * T); 0 \<le> 1\<rbrakk>
+           \<Longrightarrow> real d * 1 \<le> real ((d + 1) * T) * (2 / ln 2 * ln (real ((d + 1) * T) / ln 2))\<close>
+          divide_divide_eq_right le_numeral_extra(1) mult.right_neutral of_nat_mult of_nat_numeral
+          times_divide_eq_left times_divide_eq_right)
+     qed 
+     have "T\<le>(d+1)*T" by simp
+     from this s1 s2 have s4: "T \<le> 2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))"
+       using mult_mono[of T "(d+1)*T" 1 "2/ln(2)*ln(((d+1)*T)/ln(2))"]
+     proof -
+       have f1: "\<not> real T \<le> real ((d + 1) * T) \<or> real T \<le> real ((d + 1) * T) * (2 / ln 2 * ln (real ((d + 1) * T) / ln 2))"
+         by (metis (no_types) \<open>\<lbrakk>real T \<le> real ((d + 1) * T); 1 \<le> 2 / ln 2 * ln (real ((d + 1) * T)
+           / ln 2); 0 \<le> real ((d + 1) * T); 0 \<le> 1\<rbrakk> \<Longrightarrow> real T * 1 \<le> real ((d + 1) * T) *
+         (2 / ln 2 * ln (real ((d + 1) * T) / ln 2))\<close> le_numeral_extra(1) mult.right_neutral s1 s2)
+       have "real T \<le> real (T * (d + 1))"
+         by (metis \<open>T \<le> (d + 1) * T\<close> mult.commute of_nat_mono)
+       then show ?thesis
+         using f1 by (metis (no_types) divide_divide_eq_right mult.commute of_nat_mult of_nat_numeral times_divide_eq_left)
+     qed
+  have s5: "0<2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))" using s4 vectors.dgz by linarith
+  then show ?thesis 
+  proof (cases "finite C \<and> T\<le> card C \<and> d \<le> card C")
+    case True
+    then show ?thesis using final11 assms by auto
+  next
+    case False
+    then show ?thesis using s3 s4 s5 apply auto
+      by (smt linorder_not_less nat_less_real_le) 
+  qed
+qed
 
-lemma "\<forall>C\<subseteq>X. restrictH outer.H_map C {True, False} \<subseteq> "
+
+
+lemma assumes 
+(*"finite C"  "T\<le> card C" "d \<le> card C"*)  "baseclass.VCDim = Some d" "1 < d"
+shows "\<exists>od. outer.VCDim = Some od \<and> od \<le> nat(floor(2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))))"
+  using outer.vcd_upper final12[of _ d] assms le_nat_floor by (simp add: less_eq_real_def) 
+
+    
+
+end
