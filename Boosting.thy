@@ -2,6 +2,43 @@ theory Boosting
   imports Complex_Main LinearPredictor
 begin
 
+
+text {* Abstract
+These theories are a result of my work for the Specification and Verification Practical course
+in WS19. They mostly formalize theorems from the book "Understanding Machine Learning" by 
+Shai Shalev-Shwartz and Shai Ben-David, published 2014. The main method analyzed is Boosting
+(concretely AdaBoost) and upper bounds for both Training and Validation Errors are proven based
+on assumptions about the quality of the underlying weak learner (e.g. decision stumps). Claims about
+the Validation Error or Prediction Error require a quantification of the model complexity in the
+form of the VC-Dimension. As a result most of the work revolves around binding the VC-Dimension of
+Boosting and deducing strong statements from that measure. The auxiliary concepts explored in this
+work are the VC-Dimension, Uniform Convergence, PAC-Learnability, Linear Predictors and Decision Stumps.
+In the context of Linear Predictors in Isabelle, a specific implementation of standard vectors is
+given as well. In the following I will give a more detailed description of what was proven and how
+the documents are structured.*}
+
+text {*todo:
+explain something about errors and agnostic pac learning*}
+
+text {* List of topics, theorems, definition from the book
+Chapters 2 and 3: LearningTheory and AGentleStart by Max Haslbeck
+Chapter 4: Uniform Convergence: part of VCDim
+Chapter 6: VC-Dimension: everything else in VCDim, maybe in other files as well?
+Chapter 9: Theorem 9.2: in LinearPredictor
+Chapter 10: Boosting, Definition 10.1: Weak learner, Theorem 10.2: train err bound,
+Lemma 10.3: VCDim bound
+*}
+
+text {* What else
+RpowD
+DecisionStump
+*}
+
+text {*
+What is open? sorry at 6.11
+*}
+
+
 lemma only_one: "a\<in>A \<Longrightarrow> \<forall>b\<in>A. b = a \<Longrightarrow> card A = 1"
   by (metis (no_types, hide_lams) One_nat_def card.empty card_Suc_eq empty_iff equalityI insert_iff subsetI) 
 

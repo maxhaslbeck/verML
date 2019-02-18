@@ -1150,23 +1150,12 @@ proof -
 qed
 
 
-fun helpme :: "int \<Rightarrow> nat" where
-"helpme x = nat_of_integer (integer_of_int x)"
-
-lemma fixes a :: "real" and
-            b :: "nat"
-  assumes "a = real b"
-  shows "a = b"
 
 lemma assumes 
 (*"finite C"  "T\<le> card C" "d \<le> card C"*)  "baseclass.VCDim = Some d" "1 < d"
-shows "\<exists>od. outer.VCDim = Some od \<and> od \<le> 2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))"
-  using outer.vcd_upper final12[of _ d] assms 
-proof -
-  have "\<forall>C\<subseteq>X. shatters outer.H_map C {True, False} \<longrightarrow> (card C) \<le> nat (floor (real (2 * ((d + 1) * T)) / ln 2 * ln (real ((d + 1) * T) / ln 2)))"
-    using final12 assms
-    using le_nat_floor by fastforce
-  then have "\<exists>od. outer.VCDim = Some od \<and> od \<le> nat (floor (real (2 * ((d + 1) * T)) / ln 2 * ln (real ((d + 1) * T) / ln 2)))" 
-    using outer.vcd_upper[of "nat \<lfloor>real (2 * ((d + 1) * T)) / ln 2 * ln (real ((d + 1) * T) / ln 2)\<rfloor>"]
+shows "\<exists>od. outer.VCDim = Some od \<and> od \<le> nat(floor(2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))))"
+  using outer.vcd_upper final12[of _ d] assms le_nat_floor by (simp add: less_eq_real_def) 
+
+    
 
 end
