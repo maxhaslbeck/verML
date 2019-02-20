@@ -321,6 +321,33 @@ lemma help1:"(b::real) > 0 \<Longrightarrow> a / b \<le> c \<Longrightarrow> a \
 
 definition defloss: "loss t = 1/(card C) *(sum (\<lambda>x. (if (f t x * (y x)) > 0 then 0 else 1)) C)"
 
+lemma "TrainErr S {0..<m} (hyp t) \<le> loss t" unfolding TrainErr_def defloss
+proof -
+   have "\<forall>i. (case S i of (a, b) \<Rightarrow> if hyp t a \<noteq> b then 1::real else 0) \<le> (if 0 < f t i * y i then 0 else 1)"
+  proof
+    fix i
+    show "(case S i of (a, b) \<Rightarrow> if hyp t a \<noteq> b then 1::real else 0) \<le> (if 0 < f t i * y i then 0 else 1)"
+    proof(cases "(case S i of (a, b) \<Rightarrow>  hyp t a \<noteq> b)")
+      case c1: True
+      then have "0 \<ge> f t i * y i"
+        by (smt btor.simps case_prod_unfold comp_apply hyp_alt mult_le_0_iff)
+      then have "(if 0 < f t i * y i then 0::real else 1) = 1" by auto
+      moreover from c1 have "(case S i of (a, b) \<Rightarrow> if hyp t a \<noteq> b then 1::real else 0) = 1" by auto
+      ultimately show ?thesis by linarith 
+    next
+      case False
+      then have "(case S i of (a, b) \<Rightarrow> if hyp t a \<noteq> b then 1::real else 0) = 0"
+        by (simp add: case_prod_unfold) 
+      then show ?thesis
+        by (smt less_eq_real_def)
+    qed
+  qed
+  then have "(\<Sum>i\<in>C. case S i of (a, b) \<Rightarrow> if hyp t a \<noteq> b then 1::real else 0) \<le> (\<Sum>x\<in>C. if 0 < f t x * y x then 0 else 1)"
+     by (simp add: sum_mono)
+  then show "(\<Sum>i\<in>C. case S i of (a, b) \<Rightarrow> if hyp t a \<noteq> b then 1::real else 0) / real (card C) \<le> 1 / real (card C) * (\<Sum>x\<in>C. if 0 < f t x * y x then 0 else 1)"
+    by (simp add: divide_right_mono)
+qed
+    
 
 lemma
   assumes "\<forall>t. \<epsilon> t \<le> 1/2 - \<gamma>" and "\<forall>t. \<epsilon> t \<noteq> 0" and "\<gamma> > 0"

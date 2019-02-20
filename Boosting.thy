@@ -321,7 +321,7 @@ lemma help1:"(b::real) > 0 \<Longrightarrow> a / b \<le> c \<Longrightarrow> a \
 
 definition defloss: "loss t = 1/(card C) *(sum (\<lambda>x. (if (f t x * (y x)) > 0 then 0 else 1)) C)"
 
-lemma "TrainErr S {0..<m} (hyp t) \<le> loss t" unfolding TrainErr_def defloss
+lemma losstotrain: "TrainErr S {0..<m} (hyp t) \<le> loss t" unfolding TrainErr_def defloss
 proof -
    have "\<forall>i. (case S i of (a, b) \<Rightarrow> if hyp t a \<noteq> b then 1::real else 0) \<le> (if 0 < f t i * y i then 0 else 1)"
   proof
@@ -351,7 +351,7 @@ qed
 
 lemma
   assumes "\<forall>t. \<epsilon> t \<le> 1/2 - \<gamma>" and "\<forall>t. \<epsilon> t \<noteq> 0" and "\<gamma> > 0"
-  shows main102: "loss T \<le> exp (-2*\<gamma>^2*T)"
+  shows main102: "TrainErr S {0..<m} (hyp T) \<le> exp (-2*\<gamma>^2*T)"
 proof -
   have s1: "\<forall>k. Z k > 0"
     using dez finitex nonemptyx mgtz by (simp add: sum_pos)
@@ -373,7 +373,8 @@ proof -
     by (simp add: sum_mono)
   then have s3: "loss T \<le> Z T" 
     by (simp add: defloss dez divide_right_mono)
-  from s2 s3 show ?thesis by auto
+  from s2 s3 have "loss T \<le> exp (-2*\<gamma>^2*T)" by auto
+  then show ?thesis using losstotrain[of T] by auto
 qed
 end
 
@@ -1289,10 +1290,13 @@ qed
 
 
 
-lemma assumes 
-(*"finite C"  "T\<le> card C" "d \<le> card C"*)  "baseclass.VCDim = Some d" "1 < d"
-shows "\<exists>od. outer.VCDim = Some od \<and> od \<le> nat(floor(2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))))"
-  using outer.vcd_upper final12[of _ d] assms le_nat_floor by (simp add: less_eq_real_def) 
+lemma assumes "set_pmf D \<subseteq> (X\<times>Y)"
+      and "\<delta>\<in>{x.0<x\<and>x<1}" 
+    shows prbound: "measure_pmf.prob (Samples m D) {S. \<forall>h\<in>(H T). abs(PredErr D h - TrainErr S {0..<m} h)
+                   \<le> (4+sqrt(ln(real(outer.growth (2*m)))))/(\<delta> * sqrt(2*m))} \<ge> 1 - \<delta>"
+  using outer.theorem611 assms by auto
+
+  
 
 lemma assumes "set_pmf D \<subseteq> (X\<times>{True, False})" "0<m"
   shows doboost: "\<forall>S\<in>(set_pmf (Samples m D)). BOOST S m X oh"
@@ -1307,36 +1311,80 @@ proof
 qed
 
 
-term BOOST.loss
+lemma assumes  "baseclass.VCDim = Some d" "1 < d"
+shows VCBoosting: "\<exists>od. outer.VCDim = Some od \<and> od \<le> nat(floor(2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))))"
+  using outer.vcd_upper final12[of _ d] assms le_nat_floor by (simp add: less_eq_real_def) 
 
-lemma assumes "set_pmf D \<subseteq> (X\<times>{True, False})" "0<m" "S\<in>(set_pmf (Samples m D))"
-  shows "BOOST.loss S m oh T = TrainErr S {0..<m} (BOOST.hyp S m oh T)"
-  unfolding TrainErr_def
+lemma assumes  "baseclass.VCDim = Some d" "1 < d"
+shows "outer.uniform_convergence" using outer.uni_conv VCBoosting assms by auto
+
+lemma fixes m :: nat
+      and \<delta> :: real
+  assumes "set_pmf D \<subseteq> (X\<times>{True, False})"
+      and "\<delta>\<in>{x.0<x\<and>x<1}" "0<m" "baseclass.VCDim = Some d" "1 < d"
+      "\<forall>S\<in>(set_pmf (Samples m D)).\<forall> t. BOOST.\<epsilon> S m oh t \<le> 1/2 - \<gamma>" 
+      "\<forall>S\<in>(set_pmf (Samples m D)).\<forall> t. BOOST.\<epsilon> S m oh t \<noteq> 0" and "\<gamma> > 0"
+    shows "measure_pmf.prob (Samples m D) {S. PredErr D (BOOST.hyp S m oh T)
+   \<le> (4+sqrt(ln(real(outer.growth (2*m)))))/(\<delta> * sqrt(2*m)) + exp (-2*\<gamma>^2*T)} \<ge> 1 - \<delta>"
+    and "outer.growth m \<le> sum (\<lambda>x. m choose x) {0..(nat(floor(2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2)))))}"
 proof -
-  have s1: "BOOST S m X oh" using doboost assms by auto
-  have "BOOST.loss S m oh T = 1 / real (card {0..<m}) * (\<Sum>x\<in>{0..<m}. if 0 < BOOST.f S m oh T x * (btor \<circ> snd \<circ> S) x then 0 else 1)"
-    using s1 BOOST.defloss by blast
-  have "\<forall>i. (if 0 < BOOST.f S m oh T i * (btor \<circ> snd \<circ> S) i then 0 else 1) =  (case S i of (x, y) \<Rightarrow> if BOOST.hyp S m oh T x \<noteq> y then 1 else 0)"
+  let ?prb = "(4+sqrt(ln(real(outer.growth (2*m)))))/(\<delta> * sqrt(2*m))"
+  let ?A = "{S.  S\<in>(set_pmf (Samples m D)) \<and> 
+    (\<forall>h\<in>(H T). abs(PredErr D h - TrainErr S {0..<m} h) \<le> ?prb)}"
+  have "?A
+  = {S. \<forall>h\<in>(H T). abs(PredErr D h - TrainErr S {0..<m} h) \<le> ?prb} \<inter> set_pmf (Samples m D)" by auto
+  then have s10: "measure_pmf.prob (Samples m D) {S. \<forall>h\<in>(H T). abs(PredErr D h - TrainErr S {0..<m} h) \<le> ?prb}
+    = measure_pmf.prob (Samples m D) ?A"
+    by (simp add: measure_Int_set_pmf) 
+  have s1: "?A\<subseteq>{S. S\<in>(set_pmf (Samples m D)) \<and> (\<forall>h\<in>(H T). PredErr D h - TrainErr S {0..<m} h \<le> ?prb)}"
+    by auto
+  have "\<forall>S\<in>(set_pmf (Samples m D)).(BOOST.hyp S m oh T)\<in> H T" unfolding Samples_def
   proof
-    fix i
-    show "(if 0 < BOOST.f S m oh T i * (btor \<circ> snd \<circ> S) i then 0 else 1) = (case S i of (x, y) \<Rightarrow> if BOOST.hyp S m oh T x \<noteq> y then 1 else 0)"
-    proof(cases "(case S i of (x, y) \<Rightarrow>  BOOST.hyp S m oh T x = True)")
-      case True
-      then have "0 < BOOST.f S m oh T i" using s1
-        by (simp add: BOOST.hyp_alt case_prod_unfold) 
-      then show ?thesis
-      proof(cases "(case S i of (x, y) \<Rightarrow> y = True)")
-        case True
-        then show ?thesis 
-      next
-        case False
-        then show ?thesis sorry
-      qed
-    next
-      case False
-      then show ?thesis sorry
-    qed
-    using BOOST.hyp_def
-  have "(\<Sum>i = 0..<m. if BOOST.hyp (S ` {0..<m}) y oh T (S i) \<noteq> (0 < y (S i)) then 1 else 0) / real (card {0..<m}) "
+    fix S
+    assume "S \<in> set_pmf (Pi_pmf {0..<m} undefined (\<lambda>_. D))"
+    then have "(\<forall>i\<in>{0..<m}. S i \<in> X \<times> {True, False})"
+      using assms(1) set_Pi_pmf[of "{0..<m}" S undefined D] by auto
+    then have "(S,m)\<in>St" using assms(3) by auto
+    then show "BOOST.hyp S m oh T \<in> H T"
+      using H_def by auto
+  qed
+  then have "?A
+          \<subseteq> {S. S\<in>(set_pmf (Samples m D)) \<and> (PredErr D (BOOST.hyp S m oh T)
+                   - TrainErr S {0..<m} (BOOST.hyp S m oh T) \<le> ?prb)}"
+    using s1 by auto
+  moreover have "\<forall>S. (PredErr D (BOOST.hyp S m oh T) - TrainErr S {0..<m} (BOOST.hyp S m oh T) \<le> ?prb) \<longrightarrow>
+  (PredErr D (BOOST.hyp S m oh T) \<le> ?prb + TrainErr S {0..<m} (BOOST.hyp S m oh T))"
+    by auto
+  ultimately have "?A \<subseteq> {S. S\<in>(set_pmf (Samples m D)) \<and> (PredErr D (BOOST.hyp S m oh T)
+                    \<le> ?prb + TrainErr S {0..<m} (BOOST.hyp S m oh T))}"
+     by auto
+  moreover have "\<forall>S\<in>(set_pmf (Samples m D)). TrainErr S {0..<m} (BOOST.hyp S m oh T) \<le> exp (-2*\<gamma>^2*T)"
+    using BOOST.main102[of _ m X oh \<gamma> T] doboost assms(1,3,6,7,8) by auto
+  moreover from this have "{S. S\<in>(set_pmf (Samples m D)) \<and> (PredErr D (BOOST.hyp S m oh T)
+                    \<le> ?prb + TrainErr S {0..<m} (BOOST.hyp S m oh T))}
+              \<subseteq> {S. S\<in>(set_pmf (Samples m D)) \<and> (PredErr D (BOOST.hyp S m oh T)
+                    \<le> ?prb + exp (-2*\<gamma>^2*T))}" by auto
+  ultimately have "?A \<subseteq> {S. S\<in>(set_pmf (Samples m D)) \<and> (PredErr D (BOOST.hyp S m oh T)
+                    \<le> ?prb + exp (-2*\<gamma>^2*T))}" by auto
+  moreover have "measure_pmf.prob (Samples m D) ?A \<ge> 1 - \<delta>"
+    using s10 assms(1,2) prbound[of D "{True, False}" \<delta> m] by auto
+  ultimately have "measure_pmf.prob (Samples m D)
+{S. S\<in>(set_pmf (Samples m D)) \<and> (PredErr D (BOOST.hyp S m oh T) \<le> ?prb + exp (-2*\<gamma>^2*T))} \<ge> 1 - \<delta>"
+    using outer.subsetlesspmf[of ?A "{S. S\<in>(set_pmf (Samples m D)) \<and>
+     (PredErr D (BOOST.hyp S m oh T) \<le> ?prb + exp (-2*\<gamma>^2*T))}" "Samples m D"] by auto
+  moreover have "{S. S\<in>(set_pmf (Samples m D)) \<and> (PredErr D (BOOST.hyp S m oh T) \<le> ?prb + exp (-2*\<gamma>^2*T))}
+  = {S. PredErr D (BOOST.hyp S m oh T) \<le> ?prb + exp (-2*\<gamma>^2*T)} \<inter> set_pmf (Samples m D)" by auto
+  ultimately show "measure_pmf.prob (Samples m D)
+               {S. PredErr D (BOOST.hyp S m oh T) \<le> ?prb + exp (-2*\<gamma>^2*T)} \<ge> 1 - \<delta>"
+    by (simp add: measure_Int_set_pmf)
+next
+   let ?a = "nat(floor(2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))))"
+  obtain vcd where o1: "outer.VCDim = Some vcd" "vcd \<le> ?a"
+    using VCBoosting assms(3,4,5) by auto
+  then have "outer.growth m \<le> sum (\<lambda>x. m choose x) {0..vcd}" using outer.lem610 assms(3) by auto
+  then show "outer.growth m \<le> sum (\<lambda>x. m choose x) 
+            {0..(nat(floor(2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2)))))}"
+    using o1(2) sum_mono2[of "{0..?a}" "{0..vcd}" "((choose) m)"] by auto
+qed
 
 end

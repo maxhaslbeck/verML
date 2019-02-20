@@ -963,7 +963,7 @@ qed
 
 
 lemma assumes "VCDim = Some d"
-  shows "uniform_convergence"
+  shows uni_conv: "uniform_convergence"
 proof -
   obtain M where "M = (\<lambda>\<epsilon> \<delta>. nat \<lceil>((ln (real (d + 1)) + real (d * 2)) / (\<epsilon> * \<delta> / 2)\<^sup>2)\<^sup>2 / 2 + (4 / (\<epsilon> * \<delta> / 2))\<^sup>2 / 2
              + 1 + real d\<rceil>)" by auto
