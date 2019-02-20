@@ -20,10 +20,10 @@ begin
 text \<open>Definition of the Prediction Error (2.1). 
     This is the Isabelle way to write: 
       @{text "L\<^sub>D\<^sub>,\<^sub>f(h) =  D({S. f S \<noteq> h S})"} \<close>
-definition PredErr :: "'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> real" where
-  "PredErr D f h = measure_pmf.prob D {S. f S \<noteq> h S}" 
+definition PredErr :: "('a \<times> 'b) pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> real" where
+  "PredErr D h = measure_pmf.prob D {S. snd S \<noteq> h (fst S)}" 
 
-lemma PredErr_alt: "PredErr D f h = measure_pmf.prob D {S\<in>set_pmf D.  f S \<noteq> h S}"
+lemma PredErr_alt: "PredErr D h = measure_pmf.prob D {S\<in>set_pmf D.  snd S \<noteq> h (fst S)}"
   unfolding PredErr_def apply(rule pmf_prob_cong) by (auto simp add: set_pmf_iff) 
 
 
@@ -73,21 +73,23 @@ lemma Sample_map: "Sample D f = map_pmf (\<lambda>x. (x, f x)) D"
 
 (* Samples n D f, generates a distribution of training sets of length n, which are
      independently and identically distribution wrt. to D.  *)
-definition Samples :: "nat \<Rightarrow> 'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ((nat \<Rightarrow> 'a \<times> 'b)) pmf" where
-  "Samples n D f = Pi_pmf {0..<n} undefined (\<lambda>_. Sample D f)"
+(* definition Samples :: "nat \<Rightarrow> 'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ((nat \<Rightarrow> 'a \<times> 'b)) pmf" where
+  "Samples n D f = Pi_pmf {0..<n} undefined (\<lambda>_. Sample D f)" *)
+definition Samples :: "nat \<Rightarrow> ('a \<times> 'b) pmf \<Rightarrow> ((nat \<Rightarrow> 'a \<times> 'b)) pmf" where
+  "Samples n D = Pi_pmf {0..<n} undefined (\<lambda>_. D)"
 
 (* The Event `repeated_event n P` is the event, where n times the event P occurs *)
 definition "repeated_event n P = (PiE_dflt {0..<n} undefined (\<lambda>_. P))"
 
 (* as `Samples` executes identical and independent samples, the probability of the `repeated_event`
     is just the nth power of the probability to hit the event S in a single sample *)
-lemma iid: "measure_pmf.prob (Samples n D f) (repeated_event n S) = measure_pmf.prob (Sample D f) S ^ n"
+lemma iid: "measure_pmf.prob (Samples n D) (repeated_event n S) = measure_pmf.prob (D) S ^ n"
 proof -
-  have "measure_pmf.prob (Samples n D f) (repeated_event n S)
-        = (\<Prod>x\<in>{0..<n}. measure_pmf.prob ((\<lambda>_. Sample D f) x) ((\<lambda>_. S) x))" 
+  have "measure_pmf.prob (Samples n D) (repeated_event n S)
+        = (\<Prod>x\<in>{0..<n}. measure_pmf.prob ((\<lambda>_. D) x) ((\<lambda>_. S) x))" 
   unfolding Samples_def repeated_event_def
   apply(rule measure_Pi_pmf_PiE_dflt) by auto
-  also have "\<dots> = (measure_pmf.prob (Sample D f) S)^n" 
+  also have "\<dots> = (measure_pmf.prob D S)^n" 
     apply(subst prod_constant) by auto
   finally show ?thesis .
 qed
@@ -98,8 +100,8 @@ text \<open>The definition of PAC learnability following Definition 3.1.:\<close
 
 definition PAC_learnable :: "((nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b)) \<Rightarrow> bool" where
   "PAC_learnable L = (\<exists>M::(real \<Rightarrow> real \<Rightarrow> nat). 
-            (\<forall>D f. set_pmf D \<subseteq> X \<longrightarrow> f ` X = Y \<longrightarrow> (\<exists>h'\<in>H. PredErr D f h' = 0) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
-          measure_pmf.prob (Samples m D f) {S. PredErr D f (L S m) \<le> \<epsilon>} \<ge> 1 - \<delta>)))"
+            (\<forall>D. set_pmf D \<subseteq> (X\<times>Y) \<longrightarrow> (\<exists>h'\<in>H. PredErr D h' = 0) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
+          measure_pmf.prob (Samples m D) {S. PredErr D (L S m) \<le> \<epsilon>} \<ge> 1 - \<delta>)))"
 
 
 definition ERM :: "(nat \<Rightarrow> ('a \<times> 'b)) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b) set" where
