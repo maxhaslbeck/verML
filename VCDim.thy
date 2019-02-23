@@ -1,14 +1,11 @@
 theory VCDim
   imports Complex_Main LearningTheory RpowD
 begin
-  
-lemma card_2_explicit: "a\<in>A \<Longrightarrow> b\<in>A \<Longrightarrow> a\<noteq>b \<Longrightarrow> card A = 2 \<Longrightarrow> A = {a,b}"
-  by (smt One_nat_def Suc_inject card.remove card_1_singletonE card_infinite doubleton_eq_iff
-      insert_Diff_single insert_absorb2 mk_disjoint_insert numeral_2_eq_2 zero_neq_numeral)
 
 
-definition "mapify f = (\<lambda>x. Some (f x))" (*This should exist somewhere*)
-(*definition "allmaps C D = (if C = {} then {} else {m. dom m = C \<and> ran m \<subseteq> D})"  *)  
+section "Combinatorics over maps"
+
+definition "mapify f = (\<lambda>x. Some (f x))"
 definition "allmaps C D = {m. dom m = C \<and> ran m \<subseteq> D}"  
 definition "restrictH H C D = {m\<in>(allmaps C D). \<exists>h\<in>H. m \<subseteq>\<^sub>m h}"
 definition "shatters H C D \<longleftrightarrow> allmaps C D = restrictH H C D"
@@ -176,14 +173,20 @@ lemma allmaps_insert:
   subgoal using upd_in_all by metis
   done
 
+section "Definition VC-Dimension"
+
 locale vcd =learning_basics where X=X and Y=Y and H=H
   for X::"'a set" and Y::"'b set" and H :: "('a \<Rightarrow> 'b) set" +
 assumes infx: "infinite X"
 begin
 
-lemma "X \<noteq> {}" using infx by auto
-
 abbreviation "H_map \<equiv> image mapify H"
+
+definition "VCDim = (if finite {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y} then Some (Max {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}) else None)"
+
+definition "growth m = Max {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}"
+
+lemma "X \<noteq> {}" using infx by auto
 
 lemma ranh: "\<forall>h\<in>H_map. ran h \<subseteq> Y" using Hdef mapify_def
   by (smt imageE mem_Collect_eq option.simps(1) ran_def subset_iff)
@@ -203,6 +206,7 @@ proof -
   ultimately show ?thesis using restrictH_map_conv[of C] finiteres[of C Y H_map] by auto
 qed
 
+
 lemma assumes "H'\<noteq>{}" "H'\<subseteq>H_map"
     shows empty_shatted: "shatters H' {} D"
   unfolding shatters_def restrictH_def
@@ -216,12 +220,10 @@ proof -
 qed
 
 
-definition "VCDim = (if finite {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y} then Some (Max {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}) else None)"
-
-definition "growth m = Max {k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}"
-
+  (*
 lemma "{k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m} \<noteq> {}"
   by (smt Collect_empty_eq_bot bot_empty_eq empty_iff infinite_arbitrarily_large infx)
+*)
 
 lemma assumes "(\<forall>C\<subseteq>X. shatters H_map C Y \<longrightarrow> (card C) \<le> q)"
   shows vcd_upper: "\<exists>d. VCDim = Some d \<and>  d \<le> q"
@@ -274,6 +276,8 @@ proof -
     using VCDim_def f1 by auto
 qed
 
+section "Sauers Lemma"
+
 lemma "\<exists>f. bij_betw f Y {True, False}"
 proof -
   obtain y1 where "y1 \<in> Y" using cardY by fastforce
@@ -300,6 +304,9 @@ proof -
     using bij_betw_same_card cardY by fastforce
 qed
 
+lemma card_2_explicit: "a\<in>A \<Longrightarrow> b\<in>A \<Longrightarrow> a\<noteq>b \<Longrightarrow> card A = 2 \<Longrightarrow> A = {a,b}"
+  by (smt One_nat_def Suc_inject card.remove card_1_singletonE card_infinite doubleton_eq_iff
+      insert_Diff_single insert_absorb2 mk_disjoint_insert numeral_2_eq_2 zero_neq_numeral)
 
 
 lemma sum_union_inter:
@@ -594,38 +601,6 @@ qed
 
 
 
-(*lemma assumes "VCDim = Some d"
-      and "m>0"
-      and "C\<subseteq>X"
-      and "card C = m"
-    shows superaux: "card (restrictH H_map C Y) \<le> sum (\<lambda>x. m choose x) {0..d}"
-proof -
-  have f3: "finite C" using assms(2,4) card_ge_0_finite by auto
- have "\<forall>B\<subseteq>C. shatters H_map B Y \<longrightarrow> card B \<le> d" using assms noshatter
-    by (meson \<open>C \<subseteq> X\<close> not_le_imp_less order_trans)
-  then have f2: "{B. B\<subseteq>C \<and> shatters H_map B Y} \<subseteq> {B. B\<subseteq>C \<and> card B \<le> d}" by auto
-  have f1: "finite {B. B\<subseteq>C \<and> card B \<le> d}" using f3 by auto
-  have "card {B. B\<subseteq>C \<and> card B \<le> d} \<le> sum (\<lambda>x. m choose x) {0..d}"
-  proof (induction d)
-    case 0
-    have "{B. B \<subseteq> C \<and> card B \<le> 0} = {{}}"
-      using f3 infinite_super by fastforce
-    then show ?case by simp
-  next
-    case (Suc d)
-    have "{B. B \<subseteq> C \<and> card B \<le> Suc d} = {B. B \<subseteq> C \<and> card B \<le> d} \<union> {B. B \<subseteq> C \<and> card B = Suc d}" by auto
-    moreover have "{B. B \<subseteq> C \<and> card B \<le> d} \<inter> {B. B \<subseteq> C \<and> card B = Suc d} = {}" by auto
-    ultimately have "card {B. B \<subseteq> C \<and> card B \<le> Suc d} = card {B. B \<subseteq> C \<and> card B \<le> d} + card {B. B \<subseteq> C \<and> card B = Suc d}" using f1
-        by (simp add: f3 card_Un_disjoint)
-    then show ?case using f3 by (simp add: n_subsets assms(4) Suc.IH)
-  qed
-  from this f2 have "card {B. B\<subseteq>C \<and> shatters H_map B Y} \<le> sum (\<lambda>x. m choose x) {0..d}"
-    by (metis (no_types, lifting) card_mono f1 order_trans)
-  then show "card (restrictH H_map C Y) \<le> sum (\<lambda>x. m choose x) {0..d}" using eq63 f3
-    by (meson le_trans subsetI) 
-qed*)
-
-
 
 lemma binomial_mono: "n\<le>m \<Longrightarrow> n choose k \<le> m choose k" 
 proof(induction m)
@@ -688,6 +663,7 @@ proof -
     using \<open>\<forall>n\<in>{k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}. n \<le> sum ((choose) m) {0..d}\<close> by blast
 qed
 
+section "Using the VCDim"
 
 lemma growthgtone: "VCDim = Some d \<Longrightarrow> m \<ge> 1 \<Longrightarrow> growth m \<ge> 1"
 proof -
@@ -712,7 +688,7 @@ proof -
     by (meson card_0_eq less_one not_le)
   moreover have "(card (restrictH H_map C Y))\<in>{k. \<exists>C\<subseteq>X. k = card (restrictH H_map C Y) \<and> card C = m}" using f1 by auto
   ultimately show "growth m \<ge> 1" using growth_def f2
-    by (metis (no_types, lifting) Collect_cong Max_ge choose_one leD neq0_conv zero_less_binomial_iff) 
+    by (metis (no_types, lifting) Max_ge choose_one leD neq0_conv zero_less_binomial_iff) 
 qed
 
 
@@ -724,13 +700,6 @@ lemma assumes "set_pmf D \<subseteq> (X\<times>Y)"
   sorry
 
 
-definition representative :: "(nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> nat \<Rightarrow> real \<Rightarrow> ('a \<times> 'b) pmf  \<Rightarrow> bool" where
-  "representative S m \<epsilon> D \<longleftrightarrow> (\<forall>h\<in>H. abs(PredErr D h - TrainErr S {0..<m} h) \<le> \<epsilon>)"
-
-
-definition "uniform_convergence = (\<exists>M::(real \<Rightarrow> real \<Rightarrow> nat). 
-            (\<forall>D. set_pmf D \<subseteq> (X\<times>Y)  \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
-          measure_pmf.prob (Samples m D) {S. representative S m \<epsilon> D} \<ge> 1 - \<delta>)))"
 
 lemma ceil_gr: "y \<ge> ceiling x \<Longrightarrow> real y \<ge> x"
   by linarith
@@ -937,8 +906,7 @@ lemma assumes "C\<subseteq>X" "1<d" "VCDim = Some d" "d \<le> m" "card C \<le> m
     from this a10 show "abs(PredErr D h - TrainErr S {0..<m} h) \<le> \<epsilon>" by auto
   qed
 
-lemma subsetlesspmf: "A\<subseteq>B \<Longrightarrow> measure_pmf.prob Q A \<le> measure_pmf.prob Q B"
-  using measure_pmf.finite_measure_mono by fastforce
+
 
 lemma assumes "set_pmf D \<subseteq> (X\<times>Y)"
       and "\<delta>\<in>{x.0<x\<and>x<1}"
@@ -976,96 +944,6 @@ proof -
   then show ?thesis using uniform_convergence_def by auto
 qed
 
-
-
-
-lemma assumes "representative S m \<epsilon> D"
-          and "S\<in>Samples m D"
-          and "set_pmf D \<subseteq> (X\<times>Y)"
-          and RealizabilityAssumption: "\<exists>h'\<in>H. PredErr D h' = 0"
-        shows reptopred: "PredErr D (ERMe S m) \<le> \<epsilon>"
-proof -
-      from RealizabilityAssumption  
-    obtain h' where h'H: "h'\<in>H" and u: "PredErr D h' = 0" by blast
-
-    from u have "measure_pmf.prob D {S \<in> set_pmf D. snd S \<noteq> h' (fst S)} = 0" unfolding PredErr_alt .
-    with measure_pmf_zero_iff[of D "{S \<in> set_pmf D. snd S \<noteq> h' (fst S)}"]       
-    have correct: "\<And>x. x\<in>set_pmf D \<Longrightarrow> snd x = h' (fst x)" by blast
-
- from assms(2) set_Pi_pmf[where A="{0..<m}"]
-      have tD: "\<And>i. i\<in>{0..<m} \<Longrightarrow> S i \<in> set_pmf D"
-        unfolding Samples_def by auto 
-(*
-    then have tD: "\<And>i. i\<in>{0..<m} \<Longrightarrow> fst (S i) \<in> set_pmf D \<and> f (fst (S i)) = snd (S i)"
-      unfolding Sample_def by fastforce+ *)
-
-    have z: "\<And>i. i\<in>{0..<m} \<Longrightarrow> (case S i of (x, y) \<Rightarrow> if h' x \<noteq> y then 1::real else 0) = 0"
-    proof -
-      fix i assume "i\<in>{0..<m}"
-      then have i: "S i \<in> set_pmf D" using tD by auto
-      from i correct  have "(snd (S i))  = h' (fst (S i))" by auto                
-      then show "(case S i of (x, y) \<Rightarrow> if h' x \<noteq> y then 1::real else 0) = 0"
-        by (simp add: prod.case_eq_if)
-    qed
-
-    have Th'0: "TrainErr S {0..<m} h' = 0" 
-      unfolding TrainErr_def   using z  
-      by fastforce
-
-    then have "h' \<in>ERM S m" using ERM_0_in h'H by auto
-    then have "ERMe S m \<in> ERM S m" using ERMe_def by (metis some_eq_ex)
-    then have "ERMe S m \<in> H" using ERM_subset by blast     
-    moreover have "(\<forall>h\<in>H. abs(PredErr D h - TrainErr S {0..<m} h) \<le> \<epsilon>)"
-      using representative_def assms(1) by blast
-    ultimately have "abs(PredErr D (ERMe S m) - TrainErr S {0..<m} (ERMe S m)) \<le> \<epsilon>"
-      using assms by auto
-    moreover have "TrainErr S {0..<m} (ERMe S m) = 0" 
-        proof -
-          have f1: "is_arg_min (TrainErr S {0..<m}) (\<lambda>f. f \<in> H) (ERMe S m)"
-            using ERM_def \<open>ERMe S m \<in> ERM S m\<close> by blast
-          have f2: "\<forall>r ra. (((ra::real) = r \<or> ra \<in> {}) \<or> \<not> r \<le> ra) \<or> \<not> ra \<le> r"
-            by linarith
-          have "(0::real) \<notin> {}"
-            by blast
-          then show ?thesis
-        using f2 f1 by (metis ERM_def Th'0 TrainErr_nn \<open>h' \<in> ERM S m\<close> is_arg_min_linorder mem_Collect_eq)
-        qed
-     ultimately show ?thesis by auto
-qed
-
-
-
-lemma assumes "(\<forall>D. set_pmf D \<subseteq> (X\<times>Y)  \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
-          measure_pmf.prob (Samples m D) {S. representative S m \<epsilon> D} \<ge> 1 - \<delta>))"
-  shows aux44:"set_pmf D \<subseteq> (X\<times>Y)  \<Longrightarrow> (\<exists>h'\<in>H. PredErr D h' = 0) \<Longrightarrow>  \<epsilon> > 0 \<Longrightarrow> \<delta>\<in>{x.0<x\<and>x<1} \<Longrightarrow> m \<ge> M \<epsilon> \<delta> \<Longrightarrow> 
-          measure_pmf.prob (Samples m D) {S. PredErr D (ERMe S m) \<le> \<epsilon>} \<ge> 1 - \<delta>"
-  proof -
-  fix D m \<epsilon> \<delta>
-  assume a1: "set_pmf D \<subseteq> (X\<times>Y)" "\<exists>h'\<in>H. PredErr D h' = 0" "\<epsilon> > 0" "\<delta>\<in>{x.0<x\<and>x<1}" "m \<ge> M \<epsilon> \<delta>"
-  from this assms have "measure_pmf.prob (Samples m D) {S. representative S m \<epsilon> D} \<ge> 1 - \<delta>" by auto
-  then have "measure_pmf.prob (Samples m D) 
-  {S. set_pmf D \<subseteq> (X\<times>Y) \<and> (\<exists>h'\<in>H. PredErr D h' = 0) \<and> (S\<in>Samples m D) \<and> representative S m \<epsilon> D} \<ge> 1 - \<delta>"
-    using a1 by (smt DiffE mem_Collect_eq pmf_prob_cong set_pmf_iff)
-  moreover have "{S. set_pmf D \<subseteq> (X\<times>Y) \<and> (\<exists>h'\<in>H. PredErr D h' = 0) \<and> (S\<in>Samples m D) \<and> representative S m \<epsilon> D}
-        \<subseteq> {S. PredErr D (ERMe S m) \<le> \<epsilon>}" using reptopred by blast
-  ultimately show "measure_pmf.prob (Samples m D) {S. PredErr D (ERMe S m) \<le> \<epsilon>} \<ge> 1 - \<delta>"
-    using subsetlesspmf order_trans by fastforce
-qed
-
-
-(* lemma 4.2*)
-lemma assumes "uniform_convergence"(*"representative H S m (\<epsilon>/2)"*)
-    and RealizabilityAssumption: "\<exists>h'\<in>H. PredErr D h' = 0"
-  shows "PAC_learnable (ERMe)" 
-proof -
-  obtain M where f1: "(\<forall>D. set_pmf D \<subseteq> (X\<times>Y) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
-          measure_pmf.prob (Samples m D) {S. representative S m \<epsilon> D} \<ge> 1 - \<delta>))"
-    using assms uniform_convergence_def by auto
-  from aux44 f1 have "(\<forall>D. set_pmf D \<subseteq> (X\<times>Y) \<longrightarrow> (\<exists>h'\<in>H. PredErr D h' = 0) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
-          measure_pmf.prob (Samples m D) {S. PredErr D (ERMe S m) \<le> \<epsilon>} \<ge> 1 - \<delta>))"
-  by blast
-  then show ?thesis using PAC_learnable_def by auto
-qed
 
 end
 end

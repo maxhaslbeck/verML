@@ -2,11 +2,6 @@ theory Theorem611
   imports Complex_Main LearningTheory
 begin
 
-text "This document contains a collection of (mostly failed) attempts at gathering subproofs and
-  important lemmata for theorem 6.11. It may help proving the theorem in the future and serves
-  no other purpose."
-
-
  (*measure_pmf.jensens_inequality*)
 
 lemma "AE x in measure_pmf M. X' x \<in> UNIV"

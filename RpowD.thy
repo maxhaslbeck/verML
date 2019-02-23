@@ -2,11 +2,19 @@ theory RpowD
   imports "HOL-Analysis.Analysis"
 begin
 
+text {*In this file a vector type is defined, that is used for the linear predictor. The main goal
+       of defining this type was making the vector size independent of the type, but this is not
+       absolutely necessary and the type could be replaced by something more standard. Note, that
+       it contains a pseudo scalar/inner product (minner) that is defined without instantiating
+       metric or normed space.*}
+
 typedef movec = "{f::(nat \<Rightarrow> real). \<exists>k. \<forall>q>k. f q = 0}"
   morphisms vec_nth vec_lambda
   by auto
 
-
+section "Type-instantiations"
+text "This is all copy-paste from Finite Cartesian Products.
+Only the inner product space had to be adapted"
 
 instantiation movec :: zero
 begin
@@ -287,205 +295,8 @@ next
     using minner_comm minner_distrib by auto
 qed
 
-(*
+section "Important properties"
 
-instantiation movec :: real_inner
-begin
-(*
-definition transformover :: "movec \<Rightarrow> movec" where
- "transformover x = (let k = Min {k. vec_nth x k \<noteq> 0} in vec_lambda (\<lambda>i. (if i = 0 then vec_nth x k else 0)))"
-
-definition transformover2 :: "movec \<Rightarrow> real" where
- "transformover2 x = (let k = Min {k. vec_nth x k \<noteq> 0} in vec_nth x k)"
-
-
-definition "inner x y = (if (\<exists> k. \<forall> q>k. vec_nth x q = 0 \<and> vec_nth y q = 0) 
-then sum (\<lambda>i. inner (vec_nth x i) (vec_nth y i)) {0..(SOME k.\<forall> q>k. vec_nth x q = 0 \<and> vec_nth y q = 0)}
- else inner (transformover2 x) (transformover2 y))"
-
-definition "inner x y = sum (\<lambda>i. (vec_nth x i) * (vec_nth y i)) 
-{0..(SOME k.\<forall> q>k. vec_nth x q = 0 \<and> vec_nth y q = 0)}"*)
-
-definition "inner x y = sum (\<lambda>i. inner (vec_nth x i) (vec_nth y i)) 
-{q. vec_nth x q \<noteq> 0 \<and> vec_nth y q \<noteq> 0}"
-
-(*definition "inner x y = sum (\<lambda>i. (vec_nth x i) * (vec_nth y i)) UNIV"*)
-lemma findef: "finite {q. movec.vec_nth x q \<noteq> 0 \<and> movec.vec_nth y q \<noteq> 0}"
-   using movec.vec_nth infinite_nat_iff_unbounded by fastforce
-
-lemma anotin: "a\<notin>{q. vec_nth x q \<noteq> 0 \<and> vec_nth y q \<noteq> 0} \<Longrightarrow> (\<lambda>i. inner (vec_nth x i) (vec_nth y i)) a = 0"
-  by simp
-
-definition "norm x = L2_set (\<lambda>i. norm (vec_nth x i)) {q. vec_nth x q \<noteq> 0}"
-
-
-instance proof
-  fix r :: real and x y z :: "movec"
-  
-  show "inner x y = inner y x" 
-    unfolding inner_movec_def
-    using findef inner_commute sum.cong Collect_cong by smt
-    
-
-  (*proof(cases "(\<exists> k. \<forall> q>k. vec_nth x q = 0 \<and> vec_nth y q = 0)")
-    case True
-    then show ?thesis
-      by (auto simp add: inner_commute inner_movec_def HOL.conj_comms(1))
-
-  next
-    case False
-    then show ?thesis sorry
-  qed
-  proof -
-    obtain nn :: "real \<Rightarrow> nat" where
-      f1: "\<forall>r. r < real (nn r)"
-      using reals_Archimedean2 by moura
-    have "\<forall>m. \<exists>n. \<forall>na>n. movec.vec_nth m na = 0"
-      using movec.vec_nth by auto
-    then show "(\<Sum>n = 0..SOME n. \<forall>na>n. movec.vec_nth x na = 0 \<and> movec.vec_nth y na = 0. movec.vec_nth x n * movec.vec_nth y n) = (\<Sum>n = 0..SOME n. \<forall>na>n. movec.vec_nth y na = 0 \<and> movec.vec_nth x na = 0. movec.vec_nth y n * movec.vec_nth x n)"
-      using f1 by (metis (full_types, lifting) less_numeral_extra(3) movec_def movec_lambda_beta of_nat_less_iff)
-  qed *)
-  let ?A = "{q. movec.vec_nth x q \<noteq> 0 \<and> movec.vec_nth z q \<noteq> 0}
-\<union>{q. movec.vec_nth y q \<noteq> 0 \<and> movec.vec_nth z q \<noteq> 0}
-\<union>{q. movec.vec_nth (x+y) q \<noteq> 0 \<and> movec.vec_nth z q \<noteq> 0}"
-  have fina: "finite ?A" using findef by blast
-  have f1: "(\<Sum>i\<in>?A. movec.vec_nth x i \<bullet> movec.vec_nth z i)
-      = (\<Sum>i\<in>{q. movec.vec_nth x q \<noteq> 0 \<and> movec.vec_nth z q \<noteq> 0}.
-       movec.vec_nth x i \<bullet> movec.vec_nth z i)" using fina anotin sum.mono_neutral_left 
-    by (metis (no_types, lifting) DiffE le_sup_iff mem_Collect_eq sup_ge1)
-have f2: "(\<Sum>i\<in>?A. movec.vec_nth y i \<bullet> movec.vec_nth z i)
-      = (\<Sum>i\<in>{q. movec.vec_nth y q \<noteq> 0 \<and> movec.vec_nth z q \<noteq> 0}.
-       movec.vec_nth y i \<bullet> movec.vec_nth z i)" using fina anotin sum.mono_neutral_left 
-  by (metis (no_types, lifting) DiffE le_sup_iff mem_Collect_eq sup_ge1)  
-have f3: "(\<Sum>i\<in>?A. movec.vec_nth (x+y) i \<bullet> movec.vec_nth z i)
-      = (\<Sum>i\<in>{q. movec.vec_nth (x+y) q \<noteq> 0 \<and> movec.vec_nth z q \<noteq> 0}.
-       movec.vec_nth (x+y) i \<bullet> movec.vec_nth z i)" using fina anotin sum.mono_neutral_left  
-  by (metis (no_types, lifting) DiffE le_sup_iff mem_Collect_eq sup_ge2)
-  have f4: "(\<Sum>i\<in>?A. movec.vec_nth (x+y) i \<bullet> movec.vec_nth z i)
-      = (\<Sum>i\<in>?A. movec.vec_nth x i \<bullet> movec.vec_nth z i)
-      + (\<Sum>i\<in>?A. movec.vec_nth y i \<bullet> movec.vec_nth z i)"
-    using inner_add_left sum.distrib[of "(\<lambda>i. movec.vec_nth x i \<bullet> movec.vec_nth z i)" "(\<lambda>i. movec.vec_nth y i \<bullet> movec.vec_nth z i)" ?A]
-    by (metis (no_types, lifting) movector_add_component sum.cong)
-  
-    show "inner (x + y) z = inner x z + inner y z"
-    unfolding inner_movec_def
-    using f1 f2 f3 f4 by simp
-  show "inner (scaleR r x) y = r * inner x y"
-  proof (cases "r = 0")
-    case True
-    then show ?thesis unfolding inner_movec_def
-      by simp 
-  next
-    case False
-    then have "{q. movec.vec_nth (r *\<^sub>R x) q \<noteq> 0 \<and> movec.vec_nth y q \<noteq> 0}
-      = {q. movec.vec_nth x q \<noteq> 0 \<and> movec.vec_nth y q \<noteq> 0}" by simp 
-    then show ?thesis unfolding inner_movec_def
-      using movector_scaleR_component sum_distrib_left inner_scaleR_left sum.cong by smt
-  qed
-  show "0 \<le> inner x x"
-    unfolding inner_movec_def
-    by (simp add: sum_nonneg)
-  have f5: "(\<forall>i. i \<in> {q. movec.vec_nth x q \<noteq> 0 \<and> movec.vec_nth x q \<noteq> 0}
-     \<longrightarrow> 0 < movec.vec_nth x i \<bullet> movec.vec_nth x i)"
-    using inner_gt_zero_iff by blast
-  show "inner x x = 0 \<longleftrightarrow> x = 0"
-  proof(cases "x=0")
-    case True
-    then show ?thesis using inner_movec_def
-      by simp
-  next
-    case c1: False
-    then have "{q. movec.vec_nth x q \<noteq> 0 \<and> movec.vec_nth x q \<noteq> 0} \<noteq> {}"
-      by (simp add: movec_eq_iff)
-    then have "inner x x > 0" unfolding inner_movec_def using f5 findef sum_pos
-      by (metis (no_types, lifting) Collect_cong) 
-    then show ?thesis using c1 by auto
-  qed
- (*unfolding inner_movec_def
-  using movec_eq_iff findef 
-    sum_nonneg_eq_0_iff[of "{q. movec.vec_nth x q \<noteq> 0 \<and> movec.vec_nth x q \<noteq> 0}" "(\<lambda>i. movec.vec_nth x i \<bullet> movec.vec_nth x i)"]  
-  zero_index   by (simp add: movec_eq_iff sum_nonneg_eq_0_iff)
-  proof -
-    obtain k where "\<forall>q>k. vec_nth x q = 0"
-      using movec.vec_nth by auto
-    then have "sum (\<lambda>i. (vec_nth x i) * (vec_nth y i)) UNIV
-             = sum (\<lambda>i. (vec_nth x i) * (vec_nth y i)) {0..k}"
-      using VCDim4.zero_index lessI mem_Collect_eq movec.vec_lambda_inverse movec.vec_nth movec_lambda_beta movec_lambda_unique 
-
-   *)
-  show "norm x = sqrt (inner x x)"
-    unfolding inner_movec_def norm_movec_def L2_set_def
-    by (metis (no_types, lifting) Collect_cong power2_norm_eq_inner sum.cong)
-  
-qed
-
-end
-*)
-(*
-
-instantiation movec :: (real_vector, linorder) real_vector
-begin
-definition "scaleR \<equiv> (\<lambda> r x. vec_lambda (\<lambda> i. scaleR r (vec_nth x i)))"
-instance
-proof
-  fix f1 f2 f3::"('a,'b)movec"
-  fix i::'b
-  show "vec_nth f1 i + vec_nth f2 i + vec_nth f3 i = vec_nth f1 i + (vec_nth f2 i + vec_nth f3 i)"
-
-end
-
-
-datatype  ('a, 'b ) myvec  = Supa "('a \<Rightarrow> 'b) set"
-
-instantiation movec :: uminus
-begin
-definition "uminus \<equiv> (\<lambda> f x. - f x)"
-
-instance ..
-end
-
-instantiation mivec :: real_vector
-begin
-  (*definition "uminus \<equiv> (\<lambda> f x. - f x)"*)
-definition "scaleR \<equiv> (\<lambda> (r::real) (f::nat\<Rightarrow>real) i::nat. scaleR r (f i))"
-
-instance
-  apply standard
-end
-
-instantiation myvec :: (real_vector,real_vector)real_vector
-begin                             
-
-end
-
-term vector_space
-
-locale daba = fixes d::nat
-begin
-
-typedef limnat = "{a :: nat. a < 10}"
-  by (meson mem_Collect_eq numeral_less_iff semiring_norm(76))
-
-setup_lifting type_definition_limnat
-
-class testi =
-  fixes sizi :: "type \<Rightarrow> nat"
-
-instantiation limnat :: finite
-begin
-
-end
-
-instance limnat :: finite
-proof
-  have "(UNIV::limnat set) = image Abs_limnat {a :: nat. a < 10}"
-    using type_definition.univ type_definition_limnat by blast
-  moreover have "finite {a :: nat. a < 10}" by blast
-  ultimately show "finite (UNIV::limnat set)" by (metis finite_imageI)
-qed
-
-end
-*)
 
 lemma le_valid: "(\<lambda>i. if i \<le> (k::nat) then f i else 0) \<in> {f. \<exists>j. \<forall>q>j. f q = 0}"
   using leD by auto

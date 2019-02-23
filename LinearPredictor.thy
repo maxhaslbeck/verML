@@ -262,22 +262,5 @@ lemma "0<(m::nat) \<Longrightarrow> growth m \<le> sum (\<lambda>x. m choose x) 
 end
 
 
-
-(*
-locale flinpred =
-  fixes k::nat
-  assumes dgz: "k>0"
-begin
-
-interpretation linpred k
-  apply standard
-  using dgz by auto
-
-
-
-lemma "0<(m::nat) \<Longrightarrow> growth m \<le> sum (\<lambda>x. m choose x) {0..d}"
-
-
-end *)
 end
 

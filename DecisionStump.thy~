@@ -4,12 +4,8 @@ imports
   "HOL-Data_Structures.Cmp"
 begin
 
-text "This document contains an attempt at providing an upper bound for the error of decision stumps.
-      Since there is no non-trivial (better than 0.5) upper bound without assumptions, 
-      I tried to specify the conditions necessary for such a bound. I proof that the condition
-      I came up with is sufficient for the bound provided but it turns out, it is not a necessary
-      condition for a bound <0.5 and as such not optimal. However, such a bound would not be very
-      powerful so this side-project was stopped."
+value "cmp (3::real) 2"
+
 
 locale Stump =
   fixes X :: "'a set"
