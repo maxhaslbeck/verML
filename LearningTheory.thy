@@ -12,6 +12,14 @@ lemma subsetlesspmf: "A\<subseteq>B \<Longrightarrow> measure_pmf.prob Q A \<le>
   using measure_pmf.finite_measure_mono by fastforce
 
 section "Error Definitions"
+text {* Error terms:
+In machine learning, typically two different errors are measured when training a model. The training
+error is the error achieved by the model on the data used for training while the validation error
+is measured on a seperate data set that is retrieved from the same source. This is done to approximate
+the error that can be expected when using the model to predict on new data from the same source
+distribution. In the book and in this work this error will therefore be referred to as prediction
+error. We can derive bounds for this error that do not require an actual validation set using
+learning theory. *}
 
 text \<open>Definition of the Prediction Error (3.1). 
     This is the Isabelle way to write: 

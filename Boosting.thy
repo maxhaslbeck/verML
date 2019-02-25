@@ -3,7 +3,6 @@ theory Boosting
 begin
 
 text{* todo:
-explain something about agnostic pac learning (is already agnostic???)
 general comments
 something about assumptions and locales
 interpretation of results
@@ -20,17 +19,7 @@ form of the VC-Dimension. As a result most of the work revolves around binding t
 Boosting and deducing strong statements from that measure. The auxiliary concepts explored in this
 work are the VC-Dimension, Uniform Convergence, PAC-Learnability, Linear Predictors and Decision Stumps.
 In the context of Linear Predictors in Isabelle, a specific implementation of standard vectors is
-given as well. In the following I will give a more detailed description of what was proven and how
-the documents are structured.*}
-
-text {* Error terms:
-In machine learning, typically two different errors are measured when training a model. The training
-error is the error achieved by the model on the data used for training while the validation error
-is measured on a seperate data set that is retrieved from the same source. This is done to approximate
-the error that can be expected when using the model to predict on new data from the same source
-distribution. In the book and in this work this error will therefore be referred to as prediction
-error. We can derive bounds for this error that do not require an actual validation set using
-learning theory. *}
+given as well.*}
 
 
 
@@ -61,22 +50,42 @@ Theorem611: This document contains a collection of (mostly failed) attempts at g
 Pi_pmf: This was imported by Max Haslbeck to define iid samples and otherwise left untouched by me.
 *}
 
-text {* List of topics, theorems, definition from the book
-Chapters 2 and 3: LearningTheory defines basic concepts and AGentleStart proves corollary 2.3 which
-  is independent of the other theorems proven. Both documents are based on work by Max Haslbeck and
-  only slightly adapted.
-Chapter 4: Uniform Convergence: part of LearningTheory now
-Chapter 6: VC-Dimension: everything else in VCDim, maybe in other files as well?
-Chapter 9: Theorem 9.2: in LinearPredictor
-Chapter 10: Boosting, Definition 10.1: Weak learner, Theorem 10.2: train err bound,
-Lemma 10.3: VCDim bound
-*}
+text{* General comments
+Big parts of LearningTheory and FiniteHypClasses are by Max Haslbeck and only slightly adapted.
+In chapter 2 of the book, the ground truth gets introduced in terms of a labeling function. This
+assumption gets loosened in chapter 3 by including the label of a data point in the data generating
+distribution. I decided to use that notation throughout to make the statements more general. The
+definition of PAC-Learning however is not agnostic but based on the realizability assumption, which
+creates some minor differences to the book.
+Locales are used mostly to fix hypothesis classes and defining input and output sets. Note, that
+in VCDim I assumed the input set X to be infinite. This was done to allow the definition of the
+growth function to be as in the book. (with a free parameter describing input set size) Maybe it's
+possible to lift this constraint by changing the definitions accordingly, however if X was finite,
+H would also be finite and PAC-learnable by Corollary 2.3.
+There is one critical part of the theory left unproven, namely theorem 6.11. It is very important,
+as it provides the bridge between combinatorics and probability theory. Because of limited time,
+the proof for this theorem was ommited and could be added at a later time.
+Error terms:
+In machine learning, typically two different errors are measured when training a model. The training
+error is the error achieved by the model on the data used for training while the validation error
+is measured on a seperate data set that is retrieved from the same source. This is done to approximate
+the error that can be expected when using the model to predict on new data from the same source
+distribution. In the book and in this work this error will therefore be referred to as prediction
+error. We can derive bounds for this error that do not require an actual validation set using
+learning theory.
+ *}
+
+text {* Main results and interpretation
+The main result of this work is the last lemma in Boosting as it effectively presents a bound on
+the prediction error of Boosting that does not rely on the realizability assumption. It combines
+Theorem 10.2, Lemma 10.3 and bounds from VCDim. There is one strong assumption though and that
+is the assumed error of the weak learner/base class (0.5-\<gamma>). The quality of the bound given by
+Theorem 10.2 is highly dependent on the quality of the weak learner in terms of a high \<gamma>. Therefore
+the other part, which bounds the difference between Training and Prediction error, could be
+considered stronger, as it does not require such strong assumptions.
+ *}
 
 
-
-text {*
-What is open? sorry at 6.11
-*}
 
 section "Boosting"
 
@@ -370,8 +379,7 @@ proof -
     by (simp add: divide_right_mono)
 qed
     
-
-lemma
+lemma \<comment> \<open>Theorem 10.2\<close>
   assumes "\<forall>t. \<epsilon> t \<le> 1/2 - \<gamma>" and "\<forall>t. \<epsilon> t \<noteq> 0" and "\<gamma> > 0"
   shows main102: "TrainErr S {0..<m} (hyp T) \<le> exp (-2*\<gamma>^2*T)"
 proof -
@@ -400,7 +408,7 @@ proof -
 qed
 end
 
-section "VC-Dimension Boosting"
+section "VC-Dimension Boosting (Lemma 10.3)"
 
 subsection "Definitions and Interpretations"
 
@@ -1152,8 +1160,8 @@ proof -
   qed
 qed
 
-
-lemma assumes  "baseclass.VCDim = Some d" "1 < d"
+lemma \<comment> \<open>Lemma 10.3\<close>
+assumes  "baseclass.VCDim = Some d" "1 < d"
 shows VCBoosting: "\<exists>od. outer.VCDim = Some od \<and> od \<le> nat(floor(2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2))))"
   using outer.vcd_upper final12[of _ d] assms le_nat_floor by (simp add: less_eq_real_def) 
 

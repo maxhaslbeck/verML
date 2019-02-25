@@ -2,6 +2,12 @@ theory Boosting
   imports Complex_Main LinearPredictor VCDim
 begin
 
+text{* todo:
+explain something about agnostic pac learning (is already agnostic???)
+general comments
+something about assumptions and locales
+interpretation of results
+links and comment names above lemmas*}
 
 text {* Abstract
 These theories are a result of my work for the Specification and Verification Practical course
@@ -26,8 +32,34 @@ distribution. In the book and in this work this error will therefore be referred
 error. We can derive bounds for this error that do not require an actual validation set using
 learning theory. *}
 
-text{* todo:
-explain something about agnostic pac learning (is already agnostic???)*}
+
+
+text {*File Overview: Chapters | Definitions, Lemmas, Theorems
+LearningTheory:       2,3,4      Equations 3.1, 2.2 (Errors), Definitions 3.1, 4.1, 4.3, Lemma 4.2
+FiniteHypClasses:     2          Corollary 2.3/3.2 (equivalent)
+VCDim:                4          Definitions 6.2 6.3 6.5 6.9, Lemma 6.10 (Sauer's), Theorem 6.7
+                                 (The Fundamental Theorem of Statistical Learning), 6.11 (sorry'd)
+LinearPredictor:      9          Theorem 9.2
+Boosting:             10         Theorem 10.2, Lemma 10.3
+*}
+
+text {* Other files:
+RpowD: In this file a vector type is defined, that is used for the linear predictor. The main goal
+       of defining this type was making the vector size independent of the type, but this is not
+       absolutely necessary and the type could be replaced by something more standard. Note, that
+       it contains a pseudo scalar/inner product (minner) that is defined without instantiating
+       metric or normed space.
+DecisionStump: This document contains an attempt at providing an upper bound for the error of
+               decision stumps. Since there is no non-trivial (better than 0.5) upper bound without
+               assumptions, I tried to specify the conditions necessary for such a bound. I proof
+               that the condition I came up with is sufficient for the bound provided but it turns
+               out, it is not a necessary condition for a bound <0.5 and as such not optimal.
+               However, such a bound would not be very powerful so this side-project was stopped.
+Theorem611: This document contains a collection of (mostly failed) attempts at gathering subproofs
+            and important lemmata for theorem 6.11. It may help proving the theorem in the future
+            and serves no other purpose.
+Pi_pmf: This was imported by Max Haslbeck to define iid samples and otherwise left untouched by me.
+*}
 
 text {* List of topics, theorems, definition from the book
 Chapters 2 and 3: LearningTheory defines basic concepts and AGentleStart proves corollary 2.3 which
@@ -40,11 +72,7 @@ Chapter 10: Boosting, Definition 10.1: Weak learner, Theorem 10.2: train err bou
 Lemma 10.3: VCDim bound
 *}
 
-text {* What else
-RpowD
-DecisionStump
-Theorem611 file
-*}
+
 
 text {*
 What is open? sorry at 6.11

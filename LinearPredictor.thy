@@ -237,6 +237,7 @@ proof
     using \<open>infinite (myroom d)\<close> all_linear_def by force
 qed
 
+\<comment> \<open>Theorem 9.2\<close>
 lemma linvcd: "VCDim = Some d" unfolding VCDim_alt
 proof
   have "mybasis d \<subseteq> myroom d" using roomSpan

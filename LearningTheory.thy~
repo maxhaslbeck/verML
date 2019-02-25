@@ -13,9 +13,9 @@ lemma subsetlesspmf: "A\<subseteq>B \<Longrightarrow> measure_pmf.prob Q A \<le>
 
 section "Error Definitions"
 
-text \<open>Definition of the Prediction Error (2.1). 
+text \<open>Definition of the Prediction Error (3.1). 
     This is the Isabelle way to write: 
-      @{text "L\<^sub>D\<^sub>,\<^sub>f(h) =  D({S. f S \<noteq> h S})"} \<close>
+      @{text "L\<^sub>D(h) =  D({(x,y). y \<noteq> h x})"} \<close>
 definition PredErr :: "('a \<times> 'b) pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> real" where
   "PredErr D h = measure_pmf.prob D {S. snd S \<noteq> h (fst S)}" 
 
@@ -110,7 +110,7 @@ definition PAC_learnable :: "((nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> n
             (\<forall>D. set_pmf D \<subseteq> (X\<times>Y) \<longrightarrow> (\<exists>h'\<in>H. PredErr D h' = 0) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
           measure_pmf.prob (Samples m D) {S. PredErr D (L S m) \<le> \<epsilon>} \<ge> 1 - \<delta>)))"
 
-text \<open>"Empirical Risk Minimization"
+text \<open>"Empirical Risk Minimization" 
 Its learning rule ERMe chooses for a given training set S an Hypothesis h from H
 which minimizes the Training Error. \<close>
 
