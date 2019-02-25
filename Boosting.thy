@@ -2,11 +2,6 @@ theory Boosting
   imports Complex_Main LinearPredictor VCDim
 begin
 
-text{* todo:
-general comments
-something about assumptions and locales
-interpretation of results
-links and comment names above lemmas*}
 
 text {* Abstract
 These theories are a result of my work for the Specification and Verification Practical course
@@ -31,6 +26,10 @@ VCDim:                4          Definitions 6.2 6.3 6.5 6.9, Lemma 6.10 (Sauer'
 LinearPredictor:      9          Theorem 9.2
 Boosting:             10         Theorem 10.2, Lemma 10.3
 *}
+
+text {*Test:
+@{thm mapify_alt} @{term learning_basics.uniform_convergence}}
+ *}
 
 text {* Other files:
 RpowD: In this file a vector type is defined, that is used for the linear predictor. The main goal
