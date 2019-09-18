@@ -188,7 +188,7 @@ proof -
         with  set_Pi_pmf[OF _ S[unfolded Samples_def]] have Si: "S i \<in> set_pmf D" by auto
         fix x y assume "S i = (x,y)"
         with Si 
-        have "y = h x" unfolding Sample_def using A i by force
+        have "y = h x"  using A i by force
       } note 2=this      
       show "S \<in> repeated_event m {(x, y). y = h x}" unfolding repeated_event_def PiE_dflt_def apply safe by (fact 1 2)+
     qed simp

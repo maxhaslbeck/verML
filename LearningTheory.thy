@@ -27,6 +27,11 @@ text \<open>Definition of the Prediction Error (3.1).
 definition PredErr :: "('a \<times> 'b) pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> real" where
   "PredErr D h = measure_pmf.prob D {S. snd S \<noteq> h (fst S)}" 
 
+lemma PredErr_nn: "PredErr D h \<ge> 0"
+  unfolding PredErr_def by simp
+lemma PredErr_le1: "PredErr D h \<le> 1"
+  unfolding PredErr_def by simp
+
 lemma PredErr_alt: "PredErr D h = measure_pmf.prob D {S\<in>set_pmf D.  snd S \<noteq> h (fst S)}"
   unfolding PredErr_def apply(rule pmf_prob_cong) by (auto simp add: set_pmf_iff) 
 
@@ -43,6 +48,20 @@ proof -
   finally show ?thesis 
     unfolding TrainErr_def by auto
 qed
+
+lemma TrainErr_le1: 
+  assumes "I\<noteq>{}" "finite I"
+  shows "TrainErr S I h \<le> 1"
+proof -
+  from assms have *: "card I > 0" by auto
+  have "(\<Sum>i\<in>I. case S i of (x, y) \<Rightarrow> if h x \<noteq> y then 1 else 0) \<le> (\<Sum>i\<in>I. 1::real)" 
+    apply(rule sum_mono) by (simp add: split_beta') 
+  also have "\<dots> = real (card I)"
+    using real_of_card by simp
+  finally show ?thesis 
+    unfolding TrainErr_def using * by auto
+qed
+
 
 lemma TrainErr_correct: "finite I \<Longrightarrow> I \<noteq> {} \<Longrightarrow> TrainErr S I h = 0 \<Longrightarrow> i\<in>I \<Longrightarrow> h (fst (S i)) = snd (S i)"
 proof (rule ccontr)
@@ -80,7 +99,7 @@ lemma Sample_map: "Sample D f = map_pmf (\<lambda>x. (x, f x)) D"
      independently and identically distribution wrt. to D.  *)
 (* definition Samples :: "nat \<Rightarrow> 'a pmf \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ((nat \<Rightarrow> 'a \<times> 'b)) pmf" where
   "Samples n D f = Pi_pmf {0..<n} undefined (\<lambda>_. Sample D f)" *)
-definition Samples :: "nat \<Rightarrow> ('a \<times> 'b) pmf \<Rightarrow> ((nat \<Rightarrow> 'a \<times> 'b)) pmf" where
+definition Samples :: "nat \<Rightarrow> ('c) pmf \<Rightarrow> ((nat \<Rightarrow> 'c)) pmf" where
   "Samples n D = Pi_pmf {0..<n} undefined (\<lambda>_. D)"
 
 (* The Event `repeated_event n P` is the event, where n times the event P occurs *)
@@ -111,12 +130,72 @@ assumes cardY: "card Y = 2"
 begin
 
 
+definition RealizabilityAssumption where
+  "RealizabilityAssumption D = (\<exists>h'\<in>H. PredErr D h' = 0)"
+
 text \<open>The definition of PAC learnability following Definition 3.1.:\<close>
 
 definition PAC_learnable :: "((nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b)) \<Rightarrow> bool" where
   "PAC_learnable L = (\<exists>M::(real \<Rightarrow> real \<Rightarrow> nat). 
             (\<forall>D. set_pmf D \<subseteq> (X\<times>Y) \<longrightarrow> (\<exists>h'\<in>H. PredErr D h' = 0) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
           measure_pmf.prob (Samples m D) {S. PredErr D (L S m) \<le> \<epsilon>} \<ge> 1 - \<delta>)))"
+
+lemma PAC_learnable_alt: "PAC_learnable L = (\<exists>M::(real \<Rightarrow> real \<Rightarrow> nat). 
+            (\<forall>D. set_pmf D \<subseteq> (X\<times>Y) \<longrightarrow> RealizabilityAssumption D \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
+          measure_pmf.prob (Samples m D) {S. PredErr D (L S m) \<le> \<epsilon>} \<ge> 1 - \<delta>)))"
+  unfolding PAC_learnable_def RealizabilityAssumption_def ..
+
+text \<open>The definition of agnostic PAC learnablity following definition 3.3:\<close>
+
+
+definition agnostic_PAC_learnable :: "((nat \<Rightarrow> 'a \<times> 'b) \<Rightarrow> nat \<Rightarrow> ('a \<Rightarrow> 'b)) \<Rightarrow> bool" where
+  "agnostic_PAC_learnable L = (\<exists>M::(real \<Rightarrow> real \<Rightarrow> nat). 
+            (\<forall>D. set_pmf D \<subseteq> (X\<times>Y) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 
+          measure_pmf.prob (Samples m D) {S. PredErr D (L S m) \<le> (LEAST x. x\<in>((\<lambda>h'. PredErr D h') ` H)) + \<epsilon>} \<ge> 1 - \<delta>)))"
+ 
+
+lemma Least_gt0: "(\<exists>x\<in>Q:: real set. x=0) \<Longrightarrow> (\<forall>x\<in>Q. x \<ge> 0) \<Longrightarrow> Least (\<lambda>x. x\<in>Q) = 0"
+  unfolding Least_def
+  apply safe
+  apply(rule the1_equality) 
+  subgoal apply auto  
+    by force   
+  subgoal apply auto done
+  done
+
+
+
+lemma RealizabilityAssumption_LeastPredError_0:
+  "RealizabilityAssumption D \<Longrightarrow> (LEAST x. x\<in>((\<lambda>h'. PredErr D h') ` H)) = 0"
+  apply(rule Least_gt0)
+  unfolding RealizabilityAssumption_def using PredErr_nn by auto
+
+lemma agnostic_PAC_learnable_implies_PAC_learnable:
+  assumes "agnostic_PAC_learnable L" shows "PAC_learnable L"
+proof - 
+  {
+    from `agnostic_PAC_learnable L` obtain M where *: "\<And>D m \<epsilon> \<delta>. set_pmf D \<subseteq> X \<times> Y \<Longrightarrow> 
+           0 < \<epsilon> \<Longrightarrow>  0 < \<delta>  \<Longrightarrow>  \<delta> < 1  \<Longrightarrow>  M \<epsilon> \<delta> \<le> m
+             \<Longrightarrow> 1 - \<delta> \<le> measure_pmf.prob (Samples m D) {S. PredErr D (L S m) \<le> (LEAST x. x\<in>((\<lambda>h'. PredErr D h') ` H)) +  \<epsilon>}"
+      unfolding agnostic_PAC_learnable_def by blast
+    have "\<exists>M. \<forall>D. set_pmf D \<subseteq> X \<times> Y \<longrightarrow> RealizabilityAssumption D \<longrightarrow>
+            (\<forall>m \<epsilon>. 0 < \<epsilon> \<longrightarrow> 
+                   (\<forall>\<delta>\<in>{x. 0 < x \<and> x < 1}.
+                       M \<epsilon> \<delta> \<le> m \<longrightarrow> 1 - \<delta> \<le> measure_pmf.prob (Samples m D) {S. PredErr D (L S m) \<le> \<epsilon>}))" 
+    proof (rule exI[where x=M], safe)
+      fix D m \<epsilon> \<delta>
+      assume "RealizabilityAssumption D"
+      then have **: "(LEAST x. x\<in>((\<lambda>h'. PredErr D h') ` H)) = 0" 
+        using RealizabilityAssumption_LeastPredError_0 by auto
+      assume "set_pmf D \<subseteq> X \<times> Y" "0 < \<epsilon>"  "0 < \<delta>" "\<delta> < 1" "M \<epsilon> \<delta> \<le> m"
+      from *[OF this]
+      show " 1 - \<delta> \<le> measure_pmf.prob (Samples m D) {S. PredErr D (L S m) \<le>  \<epsilon>}"
+        by (simp add: **)
+    qed
+  }
+  then show ?thesis unfolding PAC_learnable_alt .
+qed
+
 
 text \<open>"Empirical Risk Minimization" 
 Its learning rule ERMe chooses for a given training set S an Hypothesis h from H
@@ -223,7 +302,8 @@ lemma assumes "(\<forall>D. set_pmf D \<subseteq> (X\<times>Y)  \<longrightarrow
   from this assms have "measure_pmf.prob (Samples m D) {S. representative S m \<epsilon> D} \<ge> 1 - \<delta>" by auto
   then have "measure_pmf.prob (Samples m D) 
   {S. set_pmf D \<subseteq> (X\<times>Y) \<and> (\<exists>h'\<in>H. PredErr D h' = 0) \<and> (S\<in>Samples m D) \<and> representative S m \<epsilon> D} \<ge> 1 - \<delta>"
-    using a1 by (smt DiffE mem_Collect_eq pmf_prob_cong set_pmf_iff)
+    using a1
+    by (smt DiffE mem_Collect_eq pmf_prob_cong set_pmf_iff)
   moreover have "{S. set_pmf D \<subseteq> (X\<times>Y) \<and> (\<exists>h'\<in>H. PredErr D h' = 0) \<and> (S\<in>Samples m D) \<and> representative S m \<epsilon> D}
         \<subseteq> {S. PredErr D (ERMe S m) \<le> \<epsilon>}" using reptopred by blast
   ultimately show "measure_pmf.prob (Samples m D) {S. PredErr D (ERMe S m) \<le> \<epsilon>} \<ge> 1 - \<delta>"
