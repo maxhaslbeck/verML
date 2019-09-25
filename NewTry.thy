@@ -12,7 +12,7 @@ lemma expectation_pair_pmf:
 
 lemma 
   fixes f :: "_ \<Rightarrow> _ \<Rightarrow> real"
-  shows expectation_Pi_pmf:
+  shows expectation_Pi_pmf_prod:
     "finite A \<Longrightarrow>  measure_pmf.expectation (Pi_pmf A dflt p) (\<lambda>y. prod (\<lambda>x. f x (y x)) A) =
     (prod (\<lambda>x. measure_pmf.expectation (p x) (\<lambda>v. f x v)) A)"
 proof (induct rule: finite_induct)
@@ -22,11 +22,12 @@ next
   case (insert a A) 
   have p: "\<And>x y. (\<Prod>xa\<in>A. f xa (if xa = a then x else y xa)) = (\<Prod>xa\<in>A. f xa (y xa))"
     apply(rule prod.cong) apply simp using insert by auto
+ 
 
   have "measure_pmf.expectation (Pi_pmf (insert a A) dflt p) (\<lambda>y. \<Prod>x\<in>insert a A. f x (y x))
         = measure_pmf.expectation (p a) (\<lambda>x. f a x * measure_pmf.expectation (Pi_pmf A dflt p) (\<lambda>y. \<Prod>xa\<in>A. f xa (y xa)))"
     apply(subst Pi_pmf_insert) apply fact apply fact
-    apply simp
+    apply simp thm integral_mult_left_zero integral_map_pmf
     unfolding expectation_pair_pmf
     apply(subst prod.insert) apply fact apply fact
     apply simp unfolding p by simp
@@ -35,6 +36,50 @@ next
     apply(subst prod.insert) apply fact apply fact by simp
   finally  show ?case .
 qed
+
+
+lemma expectation_Pi_pmf_sum:
+  fixes f :: "_ \<Rightarrow> _ \<Rightarrow> real"
+  assumes [simp]: "finite A"
+  shows   "measure_pmf.expectation (Pi_pmf A dflt p) (\<lambda>y. \<Sum>x\<in>A. (f x) (y x)) =
+             (\<Sum>x\<in>A. measure_pmf.expectation (p x) (f x))" 
+  using assms
+proof (induct rule: finite_induct)
+  case empty
+  then show ?case by auto
+next
+  case (insert a A) 
+  have p: "\<And>x y. (\<Sum>xa\<in>A. f xa (if xa = a then x else y xa)) = (\<Sum>xa\<in>A. f xa (y xa))"
+    apply(rule sum.cong) apply simp using insert by auto
+
+  have "measure_pmf.expectation (Pi_pmf (insert a A) dflt p) (\<lambda>y. \<Sum>x\<in>insert a A. f x (y x))
+        = measure_pmf.expectation (p a) (\<lambda>x. f a x + measure_pmf.expectation (Pi_pmf A dflt p) (\<lambda>y. \<Sum>xa\<in>A. f xa (y xa)))"
+    apply(subst Pi_pmf_insert) apply fact apply fact
+    apply(subst integral_map_pmf)
+    apply(subst  Bochner_Integration.integral_add)
+    subgoal sorry
+    subgoal sorry
+    apply simp
+    unfolding expectation_pair_pmf
+    apply(subst sum.insert) apply fact apply fact
+    apply simp
+    apply(subst  Bochner_Integration.integral_add)
+    subgoal sorry
+    subgoal sorry
+    apply(subst  Bochner_Integration.integral_add)
+    subgoal sorry
+    subgoal sorry    
+    unfolding p by simp
+  also have "\<dots> = (\<Sum>x\<in>insert a A. measure_pmf.expectation (p x) (f x))"
+    apply(subst insert(3))
+    apply(subst sum.insert) apply fact apply fact 
+    apply(subst  Bochner_Integration.integral_add)
+    subgoal sorry
+    subgoal sorry
+    by simp 
+  finally  show ?case .
+qed
+  
 
 
  
@@ -153,7 +198,7 @@ lemma markov_inequality':
   "
   integrable (measure_pmf D) f \<Longrightarrow>
   AE x in measure_pmf D. 0 \<le> f x \<Longrightarrow> a>0 \<Longrightarrow> measure_pmf.prob D {x. f x \<ge> a} \<le> (measure_pmf.expectation D f / a)"
-  using integral_Markov_inequality[where c=a and u=f and M=D, unfolded measure_pmf.emeasure_eq_measure]  
+  using integral_Markov_inequality[where c=a and u=f and M=D, unfolded measure_pmf.emeasure_eq_measure] 
     sorry
 
 
@@ -169,6 +214,18 @@ lemma A :
 
 lemma "abs(PredErr D h - TrainErr S {0..<m} h) \<ge> 0"
   by auto
+
+lemma assumes mgt0: "m>0"
+  shows TError_bounded: "abs(TrainErr S' {0..<m::nat} h - TrainErr S {0..<m::nat} h) \<le> 2"
+proof - 
+  have T: "\<And>S. abs(TrainErr S {0..<m} h) \<le> 1" using TrainErr_nn 
+    apply(subst abs_of_nonneg) using mgt0 by (auto intro!: TrainErr_le1) 
+  have "abs(TrainErr S' {0..<m::nat} h - TrainErr S {0..<m} h)
+        \<le> abs(TrainErr S' {0..<m::nat} h) + abs (TrainErr S {0..<m} h)"
+    by(rule abs_triangle_ineq4)
+  also have "\<dots> \<le> 2" apply(rule order.trans) apply(rule add_mono) apply(rule T)+ by simp
+  finally show ?thesis .
+qed
 
 lemma assumes mgt0: "m>0"
   shows Error_bounded: "abs(PredErr D h - TrainErr S {0..<m::nat} h) \<le> 2"
@@ -234,7 +291,7 @@ lemma expectation_linear:
         = measure_pmf.expectation M2 (\<lambda>S2. measure_pmf.expectation M (\<lambda>S. f S S2))"
   sorry
   
-
+section "help by auto3"
 (* by auto3 aka Manuel Eberl: *)
 lemma convex_on_exp: 
   fixes l :: real
@@ -244,17 +301,89 @@ lemma convex_on_exp:
   by (intro convex_on_realI[where f' = "\<lambda>x. l * exp (l * x)"]) (auto
 intro!: derivative_eq_intros)
 
+lemma mult_const_minus_self_real_le:
+  fixes x :: real
+  shows "x * (c - x) \<le> c\<^sup>2 / 4"
+proof -
+  have "x * (c - x) = -(x - c / 2)\<^sup>2 + c\<^sup>2 / 4"
+    by (simp add: field_simps power2_eq_square)
+  also have "\<dots> \<le> 0 + c\<^sup>2 / 4"
+    by (intro add_mono) auto
+  finally show ?thesis by simp
+qed
+
+lemma outsourced:
+  fixes a b l :: real
+  assumes "l > 0" and ab: "a < 0" "b > 0"
+  defines "p \<equiv> -a / (b - a)"
+  defines "h \<equiv> l * (b - a)"
+  defines "L \<equiv> (\<lambda>h. -h * p + ln (1 + p * (exp h - 1)))"
+  shows   "L h \<le> h\<^sup>2 / 8"
+proof -
+  define L' where "L' = (\<lambda>h. -p + p * exp h / (1 + p * (exp h - 1)))"
+  define L'' where "L'' = (\<lambda>h. -(p ^ 2) * exp h * exp h / (1 + p * (exp
+h - 1)) ^ 2 +
+                              p * exp h / (1 + p * (exp h - 1)))"
+  define Ls where "Ls = (\<lambda>n. [L, L', L''] ! n)"
+
+  from ab have "p > 0"
+    by (auto simp: p_def field_simps)
+  from ab and \<open>l > 0\<close> have "h > 0"
+    by (auto simp: h_def)
+  have [simp]: "L 0 = 0" "L' 0 = 0"
+    by (auto simp: L_def L'_def)
+
+  have L': "(L has_real_derivative L' x) (at x)" if "x \<in> {0..h}" for x
+  proof -
+    have "1 + p * (exp x - 1) > 0"
+      using \<open>p > 0\<close> that by (intro add_pos_nonneg mult_nonneg_nonneg) auto
+    thus ?thesis
+      unfolding L_def L'_def by (auto intro!: derivative_eq_intros)
+  qed
+
+  have L'': "(L' has_real_derivative L'' x) (at x)" if "x \<in> {0..h}" for x
+  proof -
+    have *: "1 + p * (exp x - 1) > 0"
+      using \<open>p > 0\<close> that by (intro add_pos_nonneg mult_nonneg_nonneg) auto
+    show ?thesis
+      unfolding L'_def L''_def
+      by (insert *, (rule derivative_eq_intros refl | simp)+) (auto
+simp: divide_simps; algebra)
+  qed
+
+  have diff: "\<forall>m t. m < 2 \<and> 0 \<le> t \<and> t \<le> h \<longrightarrow> (Ls m has_real_derivative Ls
+(Suc m) t) (at t)"
+    using L' L'' by (auto simp: Ls_def nth_Cons split: nat.splits)
+  from Taylor[of 2 Ls L 0 h 0 h, OF _ _ diff]
+    obtain t where t: "t \<in> {0<..<h}" "L h = L'' t * h ^ 2 / 2"
+      using \<open>h > 0\<close> ab by (auto simp: Ls_def lessThan_nat_numeral)
+  define u where "u = p * exp t / (1 + p * (exp t - 1))"
+
+  have "L'' t = u * (1 - u)"
+    by (simp add: L''_def u_def divide_simps; algebra)
+  also have "\<dots> \<le> 1 / 4"
+    using mult_const_minus_self_real_le[of u 1] by simp
+  finally have "L'' t \<le> 1 / 4" .
+
+  note t(2)
+  also have "L'' t * h\<^sup>2 / 2 \<le> (1 / 4) * h\<^sup>2 / 2"
+    using \<open>L'' t \<le> 1 / 4\<close> by (intro mult_right_mono divide_right_mono) auto
+  finally show "L h \<le> h\<^sup>2 / 8" by simp
+qed
+
+
 lemma hoeffdings_lemma:
   fixes a b :: real
   assumes range: "\<And>i. measure_pmf.prob D {x. a \<le> x \<and> x \<le> b} = 1" 
-  and E0: "measure_pmf.expectation D id = 0" and "l>0" and aleb: "a\<le>b"
+  and E0: "measure_pmf.expectation D id = 0" and lgt0: "l>0"
+  and aleb: "a\<le>b" and al0: "a<0"and bg0: "0<b" (* those do actually follow from E0 I think *)
 shows  "measure_pmf.expectation D (\<lambda>x. exp (l*x)) \<le> exp ( l^2 *(b-a)^2 / 8)"
 proof -
   let ?f = "(\<lambda>x. exp (l * x))"
 
   from range have xbetweenab: "\<And>x. x\<in>set_pmf D \<Longrightarrow> x \<in> {x. a \<le> x \<and> x \<le> b}"
     sorry
-  have ab: "a<b" and al0: "a<0" and bg0: "0<b" sorry
+  from al0 bg0 have ab: "a<b" by auto
 
   (* for integrable side conditions *)
   thm measure_pmf.integrable_const_bound 
@@ -353,8 +482,6 @@ proof -
     thm integral_bij_count_space
     thm integral_bounded_linear
     apply(subst integral_bounded_linear[symmetric, where M=D and T="?f" and f=id])
-    subgoal   sorry
-    subgoal   sorry
     by simp  *)
   also have "\<dots> = b / (b - a) * exp (l * a) - a/(b-a) * exp (l * b)"
     by (simp add: E0)
@@ -403,7 +530,15 @@ proof -
     finally 
     show ?thesis by simp
   qed
-  have 3: "?L ?h \<le> ?h^2 / 8" sorry
+
+  have G: "1 + a / (b - a) - a * exp (l * (b - a)) / (b - a)
+      = 1 - a * (exp (l * (b - a)) - 1) / (b - a) "
+    using al0 bg0 apply (auto simp: algebra_simps)
+    unfolding add_divide_distrib[symmetric] by simp 
+
+  have 3: "?L ?h \<le> ?h^2 / 8"
+    apply(rule order.trans[OF _ outsourced])
+    using al0 bg0 lgt0   apply auto unfolding G by simp
 
   have 4: "?h^2 = l^2 *(b-a)^2" by algebra
 
@@ -414,38 +549,14 @@ proof -
   finally show ?thesis .
 qed
 
-
-lemma braaaaaaa:
-  assumes [simp]: "finite A"
-  shows   "measure_pmf.expectation (Pi_pmf A dflt p) (\<lambda>y. \<Sum>x\<in>A. (Q x) (y x)) =
-             (\<Sum>x\<in>A. measure_pmf.expectation (p x) (Q x))"
-  (* induction over A? *)
-  sorry
-
-term "Pi_pmf {0..<n} undefined (\<lambda>i. D i)"
-term sum              
-term measure_pmf.prob 
 lemma hoeffding_ineq:
-  assumes
-      "\<And>i::nat. measure_pmf.expectation (D i) (f i) = \<mu> i"
-    and "\<And>i. measure_pmf.prob (D i) {x. a \<le> x \<and> x \<le> b} = 1"  and "(\<epsilon>::real)>0"
-  shows "measure_pmf.prob (Pi_pmf {0..<m} dflt D) {\<sigma>. abs(sum  (\<lambda>i. f i (\<sigma> i) - \<mu> i) {0..<m} / m) > \<epsilon> }
-             \<le> 2 * exp (- 2 * m * \<epsilon>^2 / (b-a)^2 )"
-  sorry
-
-
-
-
-
-lemma hoeffding_ineq_forreal:
   assumes
       "\<And>i::nat. i < m \<Longrightarrow> measure_pmf.expectation (D i) id = \<mu> i"
     and "\<And>i. i<m \<Longrightarrow> measure_pmf.prob (D i) {x. a \<le> x \<and> x \<le> b} = 1"  and "(\<epsilon>::real)>0"
+  and PA: "\<And>i. i < m \<Longrightarrow> a - \<mu> i < 0" and PB: "\<And>i. i < m \<Longrightarrow> 0 < b - \<mu> i" and ab2: "a<b" and mgt0: "m>0"
   shows "measure_pmf.prob (Pi_pmf {0..<m} dflt D) {\<sigma>. abs(sum  (\<lambda>i. (\<sigma> i) - \<mu> i) {0..<m} / m) > \<epsilon> }
              \<le> 2 * exp (- 2 * m * \<epsilon>^2 / (b-a)^2 )"
-proof -
-  have ab2: "a<b" sorry
-  have mgt0: "m>0"   sorry
+proof - 
   {
     fix D :: "nat \<Rightarrow> real pmf" and a b :: "nat \<Rightarrow> real" and d :: real
     assume ONE: "\<And>i. i<m \<Longrightarrow> measure_pmf.prob (D i) {x. a i \<le> x \<and> x \<le> b i} = 1"  
@@ -454,6 +565,8 @@ proof -
     assume dgt0: "d>0" 
     assume ab: "\<And>i. i<m \<Longrightarrow> a i \<le> b i"  
     assume ab2: "\<And>i. i<m \<Longrightarrow> a i < b i"  
+    assume ai: "\<And>i. i<m \<Longrightarrow> a i < 0 "
+    assume bi: "\<And>i. i<m \<Longrightarrow> 0 < b i"
   thm markov_inequality
   { fix M and \<epsilon>::real and l :: real
     assume "l>0"
@@ -471,7 +584,7 @@ proof -
           = measure_pmf.expectation (Pi_pmf  {0..<m} dflt p) (\<lambda>y. ( \<Prod>x\<in> {0..<m}. exp (l * (Q x) (y x) / m)))"
       by (auto simp:  sum_distrib_left exp_sum)     
     also have "\<dots> = (\<Prod>x\<in> {0..<m}. measure_pmf.expectation (p x) (\<lambda>y. ( exp (l * (Q x) y / m))))"
-      by (auto intro: expectation_Pi_pmf)
+      by (auto intro: expectation_Pi_pmf_prod)
     finally have "measure_pmf.expectation (Pi_pmf {0..<m} dflt p) (\<lambda>y. exp (l * (\<Sum>x = 0..<m. Q x (y x) / real m))) =
                     (\<Prod>x = 0..<m. measure_pmf.expectation (p x) (\<lambda>y. exp (l * Q x y / real m))) ".
   } note second = this
@@ -501,6 +614,8 @@ proof -
       subgoal unfolding integral_map_pmf using TWO[OF xm] by simp
       subgoal using lgt0 .
       subgoal using mgt0 ab[OF xm] divide_right_mono by force 
+      subgoal using bi[OF xm] mgt0  by auto
+      subgoal apply(rule divide_pos_pos) using ai[OF xm] mgt0 by auto
       apply simp
       done
     also have "\<dots> =  exp (l\<^sup>2 * (b x  - a x)\<^sup>2 / (8 * (real m)^2))" apply simp
@@ -532,6 +647,8 @@ proof -
       subgoal unfolding integral_map_pmf using TWO[OF xm] .
       subgoal using lgt0 .
       subgoal using mgt0 ab[OF xm] divide_right_mono by force 
+      subgoal apply(rule divide_neg_pos) using ai[OF xm] mgt0 by simp_all 
+      subgoal using bi[OF xm] mgt0  by auto
       done
     also have "\<dots> =  exp (l\<^sup>2 * (b x  - a x)\<^sup>2 / (8 * (real m)^2))" apply simp
       unfolding power2_eq_square using ab mgt0 apply (auto simp: algebra_simps)
@@ -731,7 +848,10 @@ proof -
       assume *: " i < m"
       have "measure_pmf.expectation (D i) (\<lambda>x. x - \<mu> i) = measure_pmf.expectation (D i) (\<lambda>x. x + (- \<mu> i))" by simp
       also have "\<dots> = measure_pmf.expectation (D i) (\<lambda>x. x) + measure_pmf.expectation (D i) (\<lambda>x. (- \<mu> i))"
-        apply(rule Bochner_Integration.integral_add) apply auto sorry
+        apply(rule Bochner_Integration.integral_add)
+        subgoal sorry
+        subgoal sorry
+        done
       also have "measure_pmf.expectation (D i) (\<lambda>x. x) = \<mu> i"  using assms(1)[OF *] unfolding id_def  by simp
       also have "measure_pmf.expectation (D i) (\<lambda>x. (- \<mu> i))  = - \<mu> i"
         by simp
@@ -741,6 +861,8 @@ proof -
     subgoal using ab2 by simp
     subgoal using ab2 by simp
     subgoal using ab2 by simp
+    subgoal using PA by simp
+    subgoal using PB by simp
     done
   finally show "measure_pmf.prob (Pi_pmf {0..<m} dflt D) {\<sigma>. \<epsilon> < \<bar>(\<Sum>i = 0..<m.   (\<sigma> i) - \<mu> i) / real m\<bar>}
            \<le> 2 * exp (- 2 * real m * \<epsilon>\<^sup>2 / (b - a)\<^sup>2)" .
@@ -752,10 +874,63 @@ qed
 
 
 lemma Lemma_A4:
-  assumes "a>0" "b\<ge>exp 1" "\<And>t. t>0 \<Longrightarrow> measure_pmf.prob R {x. abs(f x-x')>t}\<le> 2*b*exp(-(t^2)/a^2)"
+  assumes agt0: "a>0" and b: "b\<ge>exp 1"
+    and absch: "\<And>t. t>0 \<Longrightarrow> measure_pmf.prob R {x. abs(f x-x')>t}\<le> 2*b*exp(-(t^2)/a^2)"
   shows "measure_pmf.expectation R (\<lambda>x. abs(f x-x')) \<le> a * (2+ sqrt (ln b))"
-  sorry
+proof -
+  let ?g = "\<lambda>i::nat. a * (i + sqrt ( ln b ))"
 
+  have bgt0: "b > 0" using b sorry
+
+  have g_mono: "\<And>i j. i \<le> j \<Longrightarrow> ?g i \<le> ?g j"  
+    using agt0 by simp
+  from b have "ln b > 0"  
+    by (smt exp_le_one_iff ln_gt_zero)
+  then have b': "sqrt (ln b) > 0" by simp
+  have g_pos: "\<And>i. ?g i > 0"
+    apply(rule mult_pos_pos)
+    subgoal using agt0 by simp
+    subgoal using b' by linarith
+    done
+
+
+  have "suminf (\<lambda>i. ?g (i + 1) * measure_pmf.prob R {x. abs(f x-x')> ?g i  })
+        \<le> suminf (\<lambda>i. ?g (i + 1) * (2*b*exp(-((?g i)^2)/a^2)))"
+    apply(rule suminf_le)
+    subgoal
+      apply safe apply(rule mult_left_mono)
+       apply(rule absch)
+      subgoal using g_pos .
+      subgoal for n using g_pos[of "n+1"] by simp
+      done
+    subgoal   sorry
+    subgoal   sorry
+    done
+  also have "\<dots> = suminf (\<lambda>i.  (2 * b * a) * ((real (i + 1) + sqrt (ln b)) * (exp(-((?g i)^2)/a^2))))"
+    by (auto simp: algebra_simps)
+  also have "\<dots> = (2 * b * a) * suminf (\<lambda>i.   ((real (i + 1) + sqrt (ln b)) * (exp(-((?g i)^2)/a^2))))"
+    apply(rule suminf_mult) 
+    subgoal sorry
+    done
+  also have "suminf (\<lambda>i.   ((real (i + 1) + sqrt (ln b)) * (exp(-((?g i)^2)/a^2)))) \<le> 1/b"
+  proof -
+    have "suminf (\<lambda>i.   ((real (i + 1) + sqrt (ln b)) * (exp(-((?g i)^2)/a^2))))
+        \<le> G" sorry
+    also have "\<dots> \<le> 1 / b" 
+      sorry
+    finally show ?thesis .
+  qed
+  finally
+  have 2: "suminf (\<lambda>i. ?g (i + 1) * measure_pmf.prob R {x. abs(f x-x')> ?g i  })
+      \<le> 2*a" using bgt0 agt0 by auto
+
+  have 1: "measure_pmf.expectation R (\<lambda>x. abs(f x-x'))
+    \<le> ?g 0 + suminf (\<lambda>i. ?g (i + 1) * measure_pmf.prob R {x. abs(f x-x')> ?g i  })"
+    sorry 
+  also have "\<dots> \<le> ?g 0 + 2 * a"
+    apply(rule add_left_mono) apply (fact 2) done
+  finally show ?thesis by (auto simp: algebra_simps)
+qed
 
 lemma PP': " measure_pmf.expectation p (\<lambda>x. measure_pmf.expectation p (\<lambda>y. f x y))
     = measure_pmf.expectation p (\<lambda>x. measure_pmf.expectation p (\<lambda>y. f y x))"
@@ -893,6 +1068,10 @@ lemma hardstep:
 definition Samples1 :: "nat \<Rightarrow> (real) pmf \<Rightarrow> ((nat \<Rightarrow> real)) pmf" where
   "Samples1 n D = Pi_pmf {0..<n} (1::real) (\<lambda>_. D)"
 
+lemma Samples1_set_pmf : "y \<in> set_pmf (Samples1 m (pmf_of_set {- 1, 1}))
+  \<Longrightarrow> (\<forall>i< m. y i \<in> {-1,1})"
+  sorry
+
 lemma assumes "f \<in> set_pmf (Samples1 m (pmf_of_set {- 1, 1}))"
   shows Samples1_finite:  " finite {i. f i = - 1}"
     and Samples1_subm: "{i. f i = -1} \<subseteq> {0..<m}"
@@ -972,7 +1151,75 @@ lemma fixes f :: "'e \<Rightarrow> 'd \<Rightarrow> real"
 
 lemma set_pmf_Samples: "\<And>S i. S \<in> set_pmf (Samples m D) \<Longrightarrow> i < m \<Longrightarrow> S i \<in> set_pmf D"
   sorry
- 
+
+lemma convex_abs: "convex_on UNIV abs" unfolding convex_on_def apply auto   
+        subgoal for a b c d apply(cases "a\<ge>0"; cases "b\<ge>0"; cases "c * a + d * b\<ge>0") apply auto
+          subgoal  
+            by (simp add: mult_nonneg_nonpos)  
+          subgoal  
+            by (simp add: mult_nonpos_nonneg) 
+          subgoal  
+            by (smt mult_nonpos_nonneg)  
+          done
+        done
+
+lemma nervig1: 
+  fixes Z :: "real set"
+  assumes bdd: "bdd_above Z" 
+    and ne: "Z\<noteq>{}" 
+  and *: "(\<forall>x\<in>Z. y \<le> x)"
+  shows
+    "y \<le> Sup Z"
+proof -
+  from ne obtain z where "z\<in>Z" by blast
+  with * show ?thesis
+    apply(intro cSup_upper2[where x=z])
+    using bdd by auto
+qed
+lemma nervig2: 
+  fixes Z :: "real set"
+  assumes bdd: "bdd_above Z" 
+    and ne: "Z\<noteq>{}" 
+  and *: "(\<forall>x\<in>Z. x \<le> y)"
+  shows
+    " Sup Z \<le> y"
+proof -
+  from ne obtain z where "z\<in>Z" by blast
+  with * show ?thesis
+    apply(subst cSup_le_iff) 
+    using bdd by auto
+qed
+
+lemma bdd_above_expectation: 
+  "m>0 \<Longrightarrow> bdd_above ((\<lambda>h. measure_pmf.expectation (Samples m D) (\<lambda>S'. \<bar>TrainErr S' {0..<m} h - TrainErr x {0..<m} h\<bar>)) ` H)"
+      unfolding bdd_above_def
+      apply(rule exI[where x=2])
+      apply safe
+      apply(rule measure_pmf.integral_le_const)
+      subgoal sorry
+      subgoal
+        apply(rule AE_pmfI)
+        apply(rule TError_bounded)   by simp
+      done  
+    
+lemma abs_nnI: 
+  fixes a b :: real
+  shows "0 \<le> a \<Longrightarrow> a \<le> b \<Longrightarrow> \<bar>a\<bar> \<le> b"
+  apply(subst abs_of_nonneg) by auto
+
+
+lemma
+  fixes f :: "_ \<Rightarrow> real" and m::nat and b :: real
+  assumes "m>0"
+  "(\<And>i. i\<in>{0..<m} \<Longrightarrow> f i \<le> b)"
+shows sumabsch: "sum f {0..<m} \<le>  b * m"
+proof -
+  have "sum f {0..<m} \<le> sum (\<lambda>_. b) {0..<m}"
+    apply(rule sum_mono) using assms by simp
+  also have "\<dots> = b * m "
+    apply(subst sum_constant) by simp
+  finally show ?thesis .
+qed
 
 lemma assumes "set_pmf D \<subseteq> (X\<times>Y)"
       and delta_nn: "\<delta>\<in>{x.0<x\<and>x<1}"
@@ -1137,11 +1384,12 @@ proof -
         by auto
       also have "\<dots>   \<le> 2 * exp (-  real m  * \<rho>^2 / 2)"
         apply(rule order.trans) 
-         apply(rule hoeffding_ineq_forreal[where \<mu>="\<lambda>i.0" and a="-1" and b="1", simplified])
+         apply(rule hoeffding_ineq[where \<mu>="\<lambda>i.0" and a="-1" and b="1", simplified])
         subgoal by (simp add: integral_pmf_of_set)  
         subgoal for i apply (simp add: measure_pmf_of_set)
           apply(cases "S i"; cases "S' i") by auto
         subgoal apply fact done
+        subgoal using m_gt0 by simp
         subgoal by simp
         done
       finally have "measure_pmf.prob (Samples1 m (pmf_of_set {-1,1::real})) {\<sigma>. \<bar>?bla \<sigma> h\<bar> > \<rho> }
@@ -1271,6 +1519,10 @@ measure_pmf.expectation R
   } note fff = this
 
 
+  have "\<And>P M. (\<forall>x. x\<in>set_pmf M \<longrightarrow> P x) \<Longrightarrow> almost_everywhere (measure_pmf M) P"
+     
+    using AE_pmfI by blast  
+
   have "measure_pmf.expectation (Samples m D) (\<lambda>S. Sup (?err S ` H))
       =measure_pmf.expectation (Samples m D)
            (\<lambda>S. \<Squnion>h\<in>H. \<bar>measure_pmf.expectation (Samples m D) (\<lambda>S'.  TrainErr S' {0..<m} h )
@@ -1292,14 +1544,18 @@ measure_pmf.expectation R
     subgoal sorry
     subgoal sorry
     apply(rule cSUP_mono[OF nnH])
-    subgoal sorry
+    subgoal (* bdd_above side condition *)
+      using m_gt0 by(auto intro!: measure_pmf.integral_le_const bdd_aboveI2
+            measure_pmf.integrable_const_bound AE_pmfI intro: TError_bounded ) 
     subgoal for x n apply(rule bexI[where x=n])
        apply(rule  measure_pmf.jensens_inequality[where q=abs, where I=UNIV])
-      subgoal   sorry
+      subgoal (* integrable side condition *)
+        using m_gt0 by(auto intro!: measure_pmf.integrable_const_bound AE_pmfI intro: TError_bounded) 
       subgoal apply auto done
       subgoal by simp
-      subgoal  sorry
-      subgoal   sorry
+      subgoal (* integrable side condition *)
+        using m_gt0 by(auto intro!: measure_pmf.integrable_const_bound AE_pmfI intro: TError_bounded) 
+      subgoal using convex_abs by simp         
       subgoal by simp
       done
     done
@@ -1310,8 +1566,43 @@ measure_pmf.expectation R
            (\<lambda>S.  measure_pmf.expectation (Samples m D)
          (\<lambda>S'. \<Squnion>h\<in>H. \<bar>TrainErr S' {0..<m} h - TrainErr S {0..<m} h\<bar> ) )"
       apply(rule expectation_mono) 
-    subgoal sorry
-    subgoal sorry
+      subgoal (* integrable side condition *)
+        apply(auto intro!:  measure_pmf.integrable_const_bound AE_pmfI
+                abs_nnI  ) 
+        subgoal
+          apply(rule nervig1 )
+          subgoal  (* bdd_above side condition *)
+            using m_gt0 by(auto intro!: measure_pmf.integral_le_const bdd_aboveI2
+                measure_pmf.integrable_const_bound AE_pmfI intro: TError_bounded ) 
+          subgoal using nnH by auto
+          subgoal 
+            (* non negativity side condition *)
+            apply safe
+            using m_gt0 by(auto intro!: measure_pmf.integral_ge_const bdd_aboveI2
+                measure_pmf.integrable_const_bound AE_pmfI intro: TError_bounded )  
+          done
+        apply(rule nervig2 )
+        subgoal (* bdd_above side condition *)
+            using m_gt0 by(auto intro!: measure_pmf.integral_le_const bdd_aboveI2
+                measure_pmf.integrable_const_bound AE_pmfI intro: TError_bounded ) 
+          subgoal using nnH by auto
+          apply safe using m_gt0 by(auto intro!: measure_pmf.integral_le_const bdd_aboveI2
+                measure_pmf.integrable_const_bound AE_pmfI intro: TError_bounded )
+
+
+        subgoal (* integrable side condition *)
+          
+        apply(auto intro!:  measure_pmf.integrable_const_bound AE_pmfI
+                abs_nnI  ) 
+          subgoal 
+            (* non negativity side condition *) 
+            using m_gt0 apply (auto intro!: measure_pmf.integral_ge_const bdd_aboveI2 abs_nnI
+                measure_pmf.integrable_const_bound AE_pmfI   )   
+             using nnH by(auto intro!: nervig1 nervig2 bdd_aboveI2 intro: TError_bounded)
+            
+            using m_gt0 apply(auto intro!: measure_pmf.integral_le_const bdd_aboveI2 abs_nnI
+                measure_pmf.integrable_const_bound AE_pmfI  )  
+                 using nnH by(auto intro!: nervig1 nervig2 bdd_aboveI2 intro: TError_bounded)
       apply(rule expectation_Sup_le) done 
     also have "\<dots> = measure_pmf.expectation (Samples m D)
            (\<lambda>S.  measure_pmf.expectation (Samples m D)
@@ -1398,8 +1689,29 @@ measure_pmf.expectation R
            measure_pmf.expectation (Samples m D)
            (\<lambda>S.  measure_pmf.expectation (Samples m D)
          (\<lambda>S'. ?bnd * \<delta>))"
-      apply(rule expectation_mono)
-      subgoal sorry
+      apply(rule expectation_mono)  
+      subgoal (* integrable side condition *)        
+        apply(auto intro!:  measure_pmf.integrable_const_bound AE_pmfI
+                abs_nnI  ) 
+        subgoal (* non neg side condition *)
+          apply(auto intro!: measure_pmf.integral_ge_const)
+          subgoal (* integrable side condition *)
+          
+        apply(auto intro!:  measure_pmf.integrable_const_bound AE_pmfI
+                abs_nnI  ) 
+            subgoal  apply(auto intro!: measure_pmf.integral_ge_const AE_pmfI )
+              subgoal 
+        apply(auto intro!:  measure_pmf.integrable_const_bound AE_pmfI
+                abs_nnI  ) 
+                subgoal (* non neg *)
+                  apply(rule nervig1)
+            using m_gt0  apply (auto intro!: measure_pmf.integral_ge_const bdd_aboveI2  
+                measure_pmf.integrable_const_bound AE_pmfI   mult_imp_div_pos_le )  
+            apply(rule order.trans[OF sum_abs])
+             apply(rule sumabsch) apply simp
+             apply(drule Samples1_set_pmf)
+            apply auto
+          sorry
       subgoal sorry
       apply(rule expectation_mono)
       subgoal sorry
