@@ -37,7 +37,7 @@ next
   finally  show ?case .
 qed
 
-
+(*
 lemma expectation_Pi_pmf_sum:
   fixes f :: "_ \<Rightarrow> _ \<Rightarrow> real"
   assumes [simp]: "finite A"
@@ -79,7 +79,7 @@ next
     by simp 
   finally  show ?case .
 qed
-  
+  *)
 
 
  
@@ -186,6 +186,17 @@ theorem growth_mono: "m \<le> m' \<Longrightarrow> growth m \<le> growth m'"
   (* maybe one needs infinite X here *)
   sorry
 
+lemma "card X \<noteq> 0 \<Longrightarrow> growth m > 1"
+proof -
+  assume "card X \<noteq> 0"
+  then have "X \<noteq> {}" by auto
+  then obtain x where "x\<in>X" by blast
+  
+  show ?thesis 
+    unfolding growth_def sorry
+qed
+
+
 term measure_pmf.expectation 
 
 lemma markov_inequality:
@@ -193,12 +204,16 @@ lemma markov_inequality:
   using integral_Markov_inequality[where c=a]
 
   sorry
+ 
+thm integral_Markov_inequality[where c=a and u=f and M=D] measure_pmf.emeasure_eq_measure 
+thm ennreal_le_iff
 
 lemma markov_inequality':
   "
   integrable (measure_pmf D) f \<Longrightarrow>
   AE x in measure_pmf D. 0 \<le> f x \<Longrightarrow> a>0 \<Longrightarrow> measure_pmf.prob D {x. f x \<ge> a} \<le> (measure_pmf.expectation D f / a)"
   using integral_Markov_inequality[where c=a and u=f and M=D, unfolded measure_pmf.emeasure_eq_measure] 
+  apply(subst (asm) ennreal_le_iff)
     sorry
 
 
@@ -215,6 +230,9 @@ lemma A :
 lemma "abs(PredErr D h - TrainErr S {0..<m} h) \<ge> 0"
   by auto
 
+lemma abs_bound_neg: "\<And>a b :: real. b\<ge>0 \<Longrightarrow> abs a \<le> b \<Longrightarrow> -b \<le> a"  by auto
+lemma abs_bound_pos: "\<And>a b :: real. b\<ge>0 \<Longrightarrow> abs a \<le> b \<Longrightarrow> a \<le> b"  by auto
+
 lemma assumes mgt0: "m>0"
   shows TError_bounded: "abs(TrainErr S' {0..<m::nat} h - TrainErr S {0..<m::nat} h) \<le> 2"
 proof - 
@@ -225,7 +243,8 @@ proof -
     by(rule abs_triangle_ineq4)
   also have "\<dots> \<le> 2" apply(rule order.trans) apply(rule add_mono) apply(rule T)+ by simp
   finally show ?thesis .
-qed
+qed 
+
 
 lemma assumes mgt0: "m>0"
   shows Error_bounded: "abs(PredErr D h - TrainErr S {0..<m::nat} h) \<le> 2"
@@ -240,6 +259,8 @@ proof -
   also have "\<dots> \<le> 2" using P T by simp
   finally show ?thesis .
 qed
+
+ 
 
 lemma PredErr_as_expectation:
   "PredErr D h = measure_pmf.expectation (Samples m D) (\<lambda>S. TrainErr S {0..<m} h )"
@@ -282,9 +303,76 @@ lemma expectation_cong: "(\<And>m. m\<in>set_pmf M \<Longrightarrow> f m = g m) 
   by (rule integral_cong_AE, simp_all add: AE_measure_pmf_iff) 
 
 
-lemma expectation_Sup_le: "(\<Squnion>h\<in>H. measure_pmf.expectation D (f h))
+lemma expectation_Sup_le:
+  fixes f :: "_ \<Rightarrow> _ \<Rightarrow> real"
+  assumes Hnn: "H\<noteq>{}"  
+   and 2: "\<And>x. x \<in> H \<Longrightarrow> integrable (measure_pmf D) (f x)"
+   and 3: "\<And>x. x \<in> H \<Longrightarrow> integrable (measure_pmf D) (\<lambda>S'. \<Squnion>h\<in>H. f h S')" (* could be deduced from 2 and a stronger 4 *)
+   and 4: "\<And>d. d \<in> set_pmf D \<Longrightarrow> bdd_above ((\<lambda>h. f h d) ` H)"
+  shows  "(\<Squnion>h\<in>H. measure_pmf.expectation D (f h))
          \<le> measure_pmf.expectation D (\<lambda>S'. \<Squnion>h\<in>H. f h S')"
-  sorry
+proof -  
+  show ?thesis  apply(rule cSUP_least)
+    subgoal using Hnn by auto
+  proof -
+    fix x
+    assume "x\<in>H"
+    then show "measure_pmf.expectation D (f x) \<le> measure_pmf.expectation D (\<lambda>S'. \<Squnion>h\<in>H. f h S')"
+      apply(intro expectation_mono)
+      subgoal using 2 by simp
+      subgoal using 3 by simp
+      subgoal for d apply(rule cSUP_upper)
+        apply simp using 4 by simp
+      done
+  qed
+qed
+
+
+(* idea to compress integrability of two expectations into one:
+    pair_sigma_finite.integrable_fst *)
+
+(* idea, there is the tactic apply(measurable),
+  what does it do? *)
+
+thm pair_sigma_finite.Fubini_integrable
+
+
+lemma "measure_pmf (pair_pmf M M2)
+    = pair_measure (measure_pmf M) (measure_pmf M2)"
+     sorry
+
+term prob_space
+lemma expectation_linear':
+  fixes
+     f :: "_ \<Rightarrow> _ \<Rightarrow> real"
+ 
+  shows 
+  "measure_pmf.expectation M (\<lambda>S. measure_pmf.expectation M2 (f S))
+        = measure_pmf.expectation M2 (\<lambda>S2. measure_pmf.expectation M (\<lambda>S. f S S2))"
+proof -
+
+  have "integrable (measure_pmf M2 \<Otimes>\<^sub>M measure_pmf M) (\<lambda>(x, S). f S x)"
+    apply(rule pair_sigma_finite.Fubini_integrable)
+    subgoal 
+      by (simp add: measure_pmf.sigma_finite_measure_axioms pair_sigma_finite_def)  
+    subgoal   sorry
+    subgoal apply(rule measure_pmf.integrable_const_bound)
+      sorry
+    sorry
+
+
+  thm pair_sigma_finite.Fubini_integral
+
+  term "integral\<^sup>L M"
+
+  show ?thesis apply(subst pair_sigma_finite.Fubini_integral)
+    subgoal  
+      by (simp add: measure_pmf.sigma_finite_measure_axioms pair_sigma_finite_def)  
+    subgoal  by fact
+    subgoal apply simp done
+    done
+qed
+
 
 lemma expectation_linear:
     "measure_pmf.expectation M (\<lambda>S. measure_pmf.expectation M2 (f S))
@@ -428,11 +516,40 @@ proof -
       unfolding  g by simp
   qed
   
+  have i: "\<And>y Z. 0 \<le> Z \<Longrightarrow> a\<le>y \<Longrightarrow> y\<le>b \<Longrightarrow> a<b \<Longrightarrow> b>0 \<Longrightarrow>  (b - y) * Z / (b - a) \<le> Z"
+  proof -
+    fix y Z :: real
+    assume A: "0 \<le> Z" "a\<le>y" "y\<le>b" "a<b" "b>0"
+    have "(b - y) * Z / (b - a) = ((b - y) / (b - a)) * Z" by auto
+    also have "\<dots> \<le> Z" apply(rule mult_left_le_one_le)
+      using A by auto
+    finally show "(b - y) * Z / (b - a) \<le> Z" .
+  qed
+  
+  have ii: "\<And>y Z. 0 \<le> Z \<Longrightarrow> a\<le>y \<Longrightarrow> y\<le>b \<Longrightarrow> a<b \<Longrightarrow> b>0 \<Longrightarrow>  (y - a) * Z / (b - a) \<le> Z"
+  proof -
+    fix y Z :: real
+    assume A: "0 \<le> Z" "a\<le>y" "y\<le>b" "a<b" "b>0"
+    have "(y - a) * Z / (b - a) = ((y - a) / (b - a)) * Z" by auto
+    also have "\<dots> \<le> Z" apply(rule mult_left_le_one_le)
+      using A by auto
+    finally show "(y - a) * Z / (b - a) \<le> Z" .
+  qed
 
   have "measure_pmf.expectation D ?f \<le> measure_pmf.expectation D (\<lambda>x. (b - x) / (b - a) * exp (l * a) + (x-a)/(b-a) * exp (l * b))"
     apply(rule expectation_mono) 
-    subgoal sorry
-    subgoal sorry
+    subgoal
+      apply(rule measure_pmf.integrable_const_bound[where B="exp (l * b)"])   using lgt0 
+      by (auto intro!: AE_pmfI dest: xbetweenab)    
+       
+    subgoal 
+      apply(rule measure_pmf.integrable_const_bound[where B="exp (l * a) + exp (l * b)"])
+      using lgt0 
+       apply (auto intro!: AE_pmfI dest!: xbetweenab)   
+      apply(rule add_mono) 
+      subgoal apply(rule i) using ab bg0 by auto
+      subgoal apply(rule ii) using ab bg0 by auto
+      done
     apply(rule *)
     using xbetweenab by auto
   also 
@@ -442,8 +559,12 @@ proof -
     have "?L = measure_pmf.expectation D (\<lambda>x. (b + (x * -1)) / (b - a) * exp (l * a) + (x + (- a)) / (b - a) * exp (l * b))" by simp
     also have "\<dots> = measure_pmf.expectation D (\<lambda>x. (b + x * -1) / (b - a) * exp (l * a)) + measure_pmf.expectation D (\<lambda>x. (x + - a) / (b - a) * exp (l * b))"
       apply(rule Bochner_Integration.integral_add)
-      subgoal sorry
-      subgoal sorry
+      subgoal using bg0 ab
+        apply (auto intro!: measure_pmf.integrable_const_bound[where B="exp (l * a) "]
+                AE_pmfI dest!: xbetweenab)  apply(rule i) by auto   
+      subgoal using bg0 ab
+        apply (auto intro!: measure_pmf.integrable_const_bound[where B="exp (l * b) "]
+                AE_pmfI dest!: xbetweenab)  apply(rule ii) by auto  
       done
     also have "measure_pmf.expectation D (\<lambda>x. (b + x * -1) / (b - a) * exp (l * a)) = measure_pmf.expectation D (\<lambda>x. (b + x * -1) / (b - a))  * exp (l * a)"
       by (rule integral_mult_left_zero)
@@ -451,8 +572,10 @@ proof -
       by(rule integral_divide_zero)
     also have "measure_pmf.expectation D (\<lambda>x. (b + x * -1) ) = measure_pmf.expectation D (\<lambda>_. b) +  measure_pmf.expectation D (\<lambda>x. x * -1 )" 
       apply(rule Bochner_Integration.integral_add)
-      subgoal sorry
-      subgoal sorry
+      subgoal by auto
+      subgoal 
+        by(auto intro!: measure_pmf.integrable_const_bound[where B="max (abs a) (abs b)"]
+                AE_pmfI dest!: xbetweenab) 
       done
     also have "measure_pmf.expectation D (\<lambda>_. b) = b"
       using expectation_const by simp
@@ -466,8 +589,10 @@ proof -
       by(rule integral_divide_zero)
     also have "measure_pmf.expectation D (\<lambda>x. (x + - a) ) = measure_pmf.expectation D (\<lambda>x. x) +  measure_pmf.expectation D (\<lambda>_. -a )" 
       apply(rule Bochner_Integration.integral_add)
-      subgoal sorry
-      subgoal sorry
+      subgoal        
+        by(auto intro!: measure_pmf.integrable_const_bound[where B="max (abs a) (abs b)"]
+                AE_pmfI dest!: xbetweenab) 
+      subgoal by auto
       done
     also have "measure_pmf.expectation D (\<lambda>_. -a) = -a"
       using expectation_const by simp
@@ -552,11 +677,27 @@ qed
 lemma hoeffding_ineq:
   assumes
       "\<And>i::nat. i < m \<Longrightarrow> measure_pmf.expectation (D i) id = \<mu> i"
-    and "\<And>i. i<m \<Longrightarrow> measure_pmf.prob (D i) {x. a \<le> x \<and> x \<le> b} = 1"  and "(\<epsilon>::real)>0"
+    and range: "\<And>i. i<m \<Longrightarrow> measure_pmf.prob (D i) {x. a \<le> x \<and> x \<le> b} = 1"  and "(\<epsilon>::real)>0"
   and PA: "\<And>i. i < m \<Longrightarrow> a - \<mu> i < 0" and PB: "\<And>i. i < m \<Longrightarrow> 0 < b - \<mu> i" and ab2: "a<b" and mgt0: "m>0"
   shows "measure_pmf.prob (Pi_pmf {0..<m} dflt D) {\<sigma>. abs(sum  (\<lambda>i. (\<sigma> i) - \<mu> i) {0..<m} / m) > \<epsilon> }
              \<le> 2 * exp (- 2 * m * \<epsilon>^2 / (b-a)^2 )"
 proof - 
+
+  {
+    fix i :: nat assume i: "i < m"
+    have "measure_pmf.prob (D i) (space (measure_pmf (D i)) - {x. a \<le> x \<and> x \<le> b}) = 0" 
+      using range i by (subst measure_pmf.prob_compl) (auto)
+    also have "(space (measure_pmf (D i)) - {x. a \<le> x \<and> x \<le> b}) = -{x. a \<le> x \<and> x \<le> b}"
+      by auto
+    finally have "set_pmf (D i) \<inter> -{x. a \<le> x \<and> x \<le> b} = {}"
+      by (subst (asm) measure_pmf_zero_iff) 
+    hence "set_pmf (D i) \<subseteq> {a..b}"
+      by auto
+  } (* TODO Cleanup *)
+
+  from range have xbetweenab: "\<And>x i. x\<in>set_pmf (D i) \<Longrightarrow> x \<in> {x. a \<le> x \<and> x \<le> b}"
+    sorry
+
   {
     fix D :: "nat \<Rightarrow> real pmf" and a b :: "nat \<Rightarrow> real" and d :: real
     assume ONE: "\<And>i. i<m \<Longrightarrow> measure_pmf.prob (D i) {x. a i \<le> x \<and> x \<le> b i} = 1"  
@@ -849,8 +990,10 @@ proof -
       have "measure_pmf.expectation (D i) (\<lambda>x. x - \<mu> i) = measure_pmf.expectation (D i) (\<lambda>x. x + (- \<mu> i))" by simp
       also have "\<dots> = measure_pmf.expectation (D i) (\<lambda>x. x) + measure_pmf.expectation (D i) (\<lambda>x. (- \<mu> i))"
         apply(rule Bochner_Integration.integral_add)
-        subgoal sorry
-        subgoal sorry
+        subgoal
+          by(auto intro!: measure_pmf.integrable_const_bound[where B="max (abs a) (abs b)"]
+                AE_pmfI dest: xbetweenab) 
+        subgoal by simp
         done
       also have "measure_pmf.expectation (D i) (\<lambda>x. x) = \<mu> i"  using assms(1)[OF *] unfolding id_def  by simp
       also have "measure_pmf.expectation (D i) (\<lambda>x. (- \<mu> i))  = - \<mu> i"
@@ -867,9 +1010,94 @@ proof -
   finally show "measure_pmf.prob (Pi_pmf {0..<m} dflt D) {\<sigma>. \<epsilon> < \<bar>(\<Sum>i = 0..<m.   (\<sigma> i) - \<mu> i) / real m\<bar>}
            \<le> 2 * exp (- 2 * real m * \<epsilon>\<^sup>2 / (b - a)\<^sup>2)" .
 qed
+
  
 
+lemma
+  fixes g :: "nat \<Rightarrow> real" and
+    R :: "real pmf"
+  assumes "incseq g"   
+    and tends_to_inf: "filterlim g at_top at_top"
+    and "\<And>i. g i \<ge> 0" 
+    and nn: "\<And>x. x \<in>set_pmf R \<Longrightarrow> x \<ge> 0"
+  shows first_step: 
+    "nn_integral (measure_pmf R) (\<lambda>x. x)
+      \<le> g 0 + suminf (\<lambda>i. indicator {1..} i * (g i * measure_pmf.prob R {x. x > g (i-1)}) ) "
+proof - 
+  let ?step = "\<lambda>x. g (LEAST i. x < g i)"
 
+
+  have tendstoinf: "\<And>K. \<exists>n\<^sub>0.\<forall>n\<ge>n\<^sub>0. (g n) > K" 
+    using tends_to_inf 
+    apply (subst (asm) filterlim_at_top[of g sequentially])
+    using  eventually_at_top_linorder 
+    using eventually_gt_at_top eventually_sequentially  
+    by (metis gt_ex less_le_trans)  
+  then have p: "\<And>K. \<exists>n. (g n) > K" by blast
+
+  have *: "\<And>x. x \<in> set_pmf R \<Longrightarrow> x < g (LEAST i. x < g i)"
+     
+    apply(rule LeastI_ex) by(rule p) 
+
+  have **: "\<And>x. 0 \<le> x \<Longrightarrow> x \<le> g 0 \<Longrightarrow> (LEAST i. x < g i) = 0"
+    (* stimmt noch nicht ganz *) sorry
+
+    
+  have a1: "nn_integral (measure_pmf R) (\<lambda>x. x)
+    \<le> nn_integral (measure_pmf R) ?step"
+    apply(rule nn_integral_mono_AE)
+    apply (auto intro!: AE_pmfI)
+    using * ennreal_leI by fastforce  
+  also have "\<dots> = suminf (\<lambda>i. if i=0 then g 0 *  measure_pmf.prob R {x. x \<in> {0..g 0}}
+                        else g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})" 
+  proof -
+    let ?B = "\<lambda>n. if n = 0 then {0..g 0} else {g (n-1)<..g n}"
+
+    have "nn_integral (measure_pmf R) ?step = 
+       set_nn_integral (measure_pmf R) (\<Union>n. ?B n) ?step" sorry 
+    term "set_nn_integral (measure_pmf R) (\<Union>n. ?B n) ?step"
+    also have "\<dots> = suminf  (\<lambda>i. ( if i=0 then nn_integral (measure_pmf R) (\<lambda>x. g 0 * indicator {0..g 0} x)
+                        else nn_integral (measure_pmf R) (\<lambda>x. g i * indicator {g (i-1)<..g i} x)))"
+      apply(subst nn_integral_disjoint_family)
+      subgoal apply simp done
+      subgoal apply simp done
+      subgoal unfolding disjoint_family_on_def  apply auto
+        subgoal using  assms(1)[unfolded incseq_def]  
+          by (meson not_less order_trans zero_le)  
+        subgoal  using  assms(1)[unfolded incseq_def]    
+          by (smt less_eq_nat.simps(1))  
+        subgoal using  assms(1)[unfolded incseq_def]    
+          by (smt Suc_pred assms(1) le_less_Suc_eq linorder_neqE_nat mono_invE)   
+        done
+      apply(rule suminf_cong)
+      unfolding indicator_def apply auto 
+      subgoal apply(rule nn_integral_cong) apply auto apply(rule ennreal_cong) apply(subst **) apply auto done
+      subgoal apply(rule nn_integral_cong) apply auto (* was ähnliches wie ** *) sorry
+      done
+    also have "\<dots> = suminf  (\<lambda>i. ( if i=0 then g 0 * nn_integral (measure_pmf R) (\<lambda>x.  indicator {0..g 0} x)
+                        else  g i * nn_integral (measure_pmf R) (\<lambda>x. indicator {g (i-1)<..g i} x)))"
+      sorry
+    also have "\<dots> = suminf  (\<lambda>i. ( if i=0 then g 0 * measure_pmf.prob R {x. x \<in> {0..g 0}}
+                        else  g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}}))"
+      sorry
+    finally show  ?thesis .
+  qed    
+  also have "\<dots> = g 0 * measure_pmf.prob R {x. x \<in> {0..g 0}}
+                   + suminf (\<lambda>i. indicator {1..} i * (g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}}) ) "
+    sorry
+  also have "\<dots> \<le> g 0 
+                   + suminf (\<lambda>i. indicator {1..} i * (g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}}) ) "
+    sorry
+  also have "\<dots> \<le> g 0 
+                   + suminf (\<lambda>i. indicator {1..} i * (g i * measure_pmf.prob R {x. x > g (i-1)}) ) "
+    sorry
+  finally 
+  show "nn_integral (measure_pmf R) (\<lambda>x. x)
+      \<le> g 0 
+                   + suminf (\<lambda>i. indicator {1..} i * (g i * measure_pmf.prob R {x. x > g (i-1)}) ) "
+    .
+
+qed
 
 
 
@@ -878,58 +1106,209 @@ lemma Lemma_A4:
     and absch: "\<And>t. t>0 \<Longrightarrow> measure_pmf.prob R {x. abs(f x-x')>t}\<le> 2*b*exp(-(t^2)/a^2)"
   shows "measure_pmf.expectation R (\<lambda>x. abs(f x-x')) \<le> a * (2+ sqrt (ln b))"
 proof -
-  let ?g = "\<lambda>i::nat. a * (i + sqrt ( ln b ))"
+  let ?g = "\<lambda>i. a * (i + sqrt ( ln b ))"
+ 
+  have bgt0: "b > 0" using b  
+    using exp_gt_zero less_le_trans by blast  
 
-  have bgt0: "b > 0" using b sorry
-
-  have g_mono: "\<And>i j. i \<le> j \<Longrightarrow> ?g i \<le> ?g j"  
-    using agt0 by simp
-  from b have "ln b > 0"  
-    by (smt exp_le_one_iff ln_gt_zero)
-  then have b': "sqrt (ln b) > 0" by simp
-  have g_pos: "\<And>i. ?g i > 0"
+  have bgt1: "ln b \<ge> 1" using b  
+    by (simp add: bgt0 ln_ge_iff) 
+  then have "ln b > 0"  
+    by (smt ln_gt_zero)
+  then have b': "sqrt (ln b) > 0" by simp 
+  have g_pos: "\<And>i. i\<ge>0 \<Longrightarrow> ?g i > 0"
     apply(rule mult_pos_pos)
     subgoal using agt0 by simp
     subgoal using b' by linarith
     done
+ 
+  from bgt1 have sqrtln_ge1: "sqrt (ln b) \<ge> 1" by simp
+  then have sqrtb_D: "\<And>x. sqrt (ln b) \<le> x \<Longrightarrow> 1 \<le> x" by linarith
+
+  have g_mono: "\<And>i j. i \<le> j \<Longrightarrow> ?g i \<le> ?g j"  
+    using agt0 by auto 
 
 
-  have "suminf (\<lambda>i. ?g (i + 1) * measure_pmf.prob R {x. abs(f x-x')> ?g i  })
-        \<le> suminf (\<lambda>i. ?g (i + 1) * (2*b*exp(-((?g i)^2)/a^2)))"
+  have ff: "\<And>n. n>0 \<Longrightarrow> real (n - Suc 0) = real n - 1" by simp
+  have A: "\<integral>\<^sup>+ x. ennreal \<bar>f x - x'\<bar> \<partial>measure_pmf R
+      \<le>  ?g 0 +
+          (\<Sum>i. (indicat_real {1..} i * (?g i * measure_pmf.prob R {y. ?g (i-1) < \<bar>f y - x'\<bar>})))"
+    apply(rule ord_le_eq_trans)
+    apply(rule first_step[where R="map_pmf (\<lambda>x. abs(f x-x')) R" and g="?g"
+              ,  simplified nn_integral_map_pmf measure_map_pmf])
+    subgoal unfolding incseq_def using g_mono by simp
+    subgoal using agt0 b'
+      thm filterlim_real_sequentially
+      sorry
+    subgoal for i apply(cases i) using g_pos[of i] by auto 
+    subgoal by auto
+    subgoal apply simp
+      apply(rule ennreal_cong)  apply simp apply(rule suminf_cong)
+      by(auto simp add: indicator_def ff )        
+    done
+
+
+  have kl: "\<And>x. x \<in> (\<lambda>x. x + sqrt (ln b)) ` {0..} \<longleftrightarrow> 1 \<le> x - (sqrt (ln b) - 1) " 
+    unfolding  image_iff atLeast_def  apply auto subgoal for x
+      apply(rule exI[where x="x-sqrt (ln b)"]) by simp 
+    done
+  { fix x :: real
+    assume A: "1\<le>x"
+    have "a * (b * ((x + 1) * exp (- ( x\<^sup>2 )))) \<le> a * (b * ((2 * x) * exp (- ( x\<^sup>2 ))))"
+    apply(rule mult_left_mono)
+    apply(rule mult_left_mono)
+        apply(rule mult_right_mono)
+        using A  agt0 bgt0 by auto
+      also have "... = 2 * (a * (b   * (x * exp (- x\<^sup>2 ))))"
+        apply simp done
+      finally 
+      have h: "a * (b * ((x + 1) * exp (- x\<^sup>2 ))) \<le> 2 * (a * (b   * (x * exp (- ( x\<^sup>2 )))))" .
+    } note h = this
+
+
+  have "( \<integral>\<^sup>+y\<in>{sqrt (ln b)..}. (  ennreal (y * exp (- y\<^sup>2)))\<partial>lborel) = ennreal (exp (- (sqrt (ln b))\<^sup>2)/2)"
+    apply(subst nn_integral_FTC_atLeast[where F="\<lambda>y. (-1) * exp (- y\<^sup>2)/2" and T=0])
+    subgoal apply simp done
+    subgoal for x   sorry
+    subgoal apply(drule sqrtb_D) by simp
+    subgoal   apply simp   sorry 
+    subgoal by simp
+    done
+  also have "\<dots> = ennreal (exp (-  ln b)/2)"   using bgt1 by simp
+  also have "\<dots> = ennreal (1 / (2 * b))" using exp_diff[where x="0" and y="ln b"] bgt0 by simp 
+  finally have FTC: "( \<integral>\<^sup>+y\<in>{sqrt (ln b)..}. (  ennreal (y * exp (- y\<^sup>2)))\<partial>lborel) = ennreal (1/(2*b))" .
+
+  have "\<And>x. 1 \<le> x \<Longrightarrow> ((\<lambda>y. - 1 * exp (- y\<^sup>2)) has_real_derivative x * exp (- x\<^sup>2)) (at x)"  
+    sorry
+
+  have "\<And>x. 1 \<le> x \<Longrightarrow> ((\<lambda>y. - 1 * exp (- y\<^sup>2)) has_derivative (\<lambda>y. y * x * exp (- x\<^sup>2))) (at x)"
+    sorry    
+
+
+  term summable
+  have "suminf (\<lambda>i. ennreal ( indicat_real {Suc 0..} i * ?g i * measure_pmf.prob R {x. abs(f x-x')> ?g (i-1)  }))
+        \<le> suminf (\<lambda>i. ennreal( indicat_real {Suc 0..} i * ?g i * (2*b*exp(-((?g (i-1))^2)/a^2))))"
     apply(rule suminf_le)
     subgoal
-      apply safe apply(rule mult_left_mono)
-       apply(rule absch)
-      subgoal using g_pos .
-      subgoal for n using g_pos[of "n+1"] by simp
+      apply safe
+      subgoal for i
+        apply(cases "i>0")
+        subgoal  apply(rule ennreal_leI)
+          apply(rule mult_left_mono) 
+           apply(rule absch)
+          subgoal using g_pos by simp
+          subgoal   using g_pos[of "i"] by simp    
+          done
+        subgoal by simp
+        done
       done
-    subgoal   sorry
-    subgoal   sorry
-    done
-  also have "\<dots> = suminf (\<lambda>i.  (2 * b * a) * ((real (i + 1) + sqrt (ln b)) * (exp(-((?g i)^2)/a^2))))"
-    by (auto simp: algebra_simps)
-  also have "\<dots> = (2 * b * a) * suminf (\<lambda>i.   ((real (i + 1) + sqrt (ln b)) * (exp(-((?g i)^2)/a^2))))"
+    subgoal by simp
+    subgoal by simp
+    done 
+  also have "\<dots> = suminf (\<lambda>i. ennreal ( (2 * b * a) * (indicat_real {Suc 0..} i * ((real i + sqrt (ln b)) * (exp(-((?g (i-1))^2)/a^2))))))"
+    by (auto simp: algebra_simps) (*
+  also have "\<dots> = suminf (\<lambda>i. ( (ennreal (2 * b * a)) * ennreal (indicat_real {Suc 0..} i * ((real i + sqrt (ln b)) * (exp(-((?g (i-1))^2)/a^2))))))"
+    sorry
+  also have "\<dots> = (ennreal (2 * b * a)) * suminf (\<lambda>i. ennreal (indicat_real {Suc 0..} i *  ((real i + sqrt (ln b)) * (exp(-((?g (i-1))^2)/a^2)))))"
     apply(rule suminf_mult) 
     subgoal sorry
-    done
-  also have "suminf (\<lambda>i.   ((real (i + 1) + sqrt (ln b)) * (exp(-((?g i)^2)/a^2)))) \<le> 1/b"
-  proof -
-    have "suminf (\<lambda>i.   ((real (i + 1) + sqrt (ln b)) * (exp(-((?g i)^2)/a^2))))
-        \<le> G" sorry
-    also have "\<dots> \<le> 1 / b" 
-      sorry
-    finally show ?thesis .
-  qed
-  finally
-  have 2: "suminf (\<lambda>i. ?g (i + 1) * measure_pmf.prob R {x. abs(f x-x')> ?g i  })
-      \<le> 2*a" using bgt0 agt0 by auto
+    done *)
+  also have "\<dots> \<le> \<integral>\<^sup>+x\<in>{1..}. ennreal ( (2 * b * a) * ((x + sqrt (ln b)) * exp (- (a * (x - 1 + sqrt (ln b)))\<^sup>2 / a\<^sup>2)))\<partial>lborel"
+      sorry (* HELP needed ?! *)
+    also have "\<dots> = \<integral>\<^sup>+x\<in>{1..}. ennreal ( (2 * b * a) * ((((sqrt (ln b) - 1) + x) + 1) * exp (- (a * ((sqrt (ln b) - 1) + x))\<^sup>2 / a\<^sup>2)))\<partial>lborel"
+      by(simp add: algebra_simps ) 
+    also have "\<dots> = \<integral>\<^sup>+x\<in>{1..}. ennreal ( (2 * b * a) * ((((sqrt (ln b) - 1) + x) + 1) * exp (- ( ((sqrt (ln b) - 1) + x))\<^sup>2)))\<partial>lborel"
+        using agt0  by(simp add:  power2_eq_square)
+    also
+    let ?f = "\<lambda>x. ennreal ( (2 * b * a) * ((x + 1) * exp (- ((x  ))\<^sup>2 ))) *  indicator {1..} (x- (sqrt (ln b)-1))"
+    have "\<dots> = \<integral>\<^sup>+ x. ?f ((sqrt (ln b) - 1 ) + x) \<partial>lborel" by simp 
+    also 
+    have "\<dots> = \<integral>\<^sup>+y\<in>{sqrt (ln b)..}. ennreal (2 * b * a * ((y+1) * exp (-  y\<^sup>2 )))\<partial>lborel"         
+      apply(subst nn_integral_real_affine[where c=1 and t="sqrt (ln b)-1", symmetric,  simplified])
+      subgoal by simp  
+      subgoal by (simp add: indicator_def) 
+      done 
+    also have "\<dots> \<le> \<integral>\<^sup>+y\<in>{sqrt (ln b)..}. ennreal (2 * b * a * (2*y * exp (- y\<^sup>2 )))\<partial>lborel"   
+      apply(rule nn_integral_mono_AE) apply(rule AE_I2)
+      subgoal for x apply(auto simp : indicator_def intro!: ennreal_leI  split: if_splits)
+        apply(rule h) using sqrtln_ge1 by linarith
+      done
+    also 
+    have "\<dots> = \<integral>\<^sup>+y\<in>{sqrt (ln b)..}. (ennreal (4* b * a) * ennreal (y * exp (- y\<^sup>2)))\<partial>lborel"
+      apply(rule nn_integral_cong)
+      apply(auto simp: indicator_def)
+      apply(subst  ennreal_mult[symmetric]) using agt0 bgt0  apply auto
+       apply(rule mult_nonneg_nonneg) subgoal using b' by linarith
+      subgoal apply simp done
+      apply(rule ennreal_cong) by simp
+    also have "\<dots> = ennreal (4* b * a) * ( \<integral>\<^sup>+y\<in>{sqrt (ln b)..}. (  ennreal (y * exp (-  y\<^sup>2 )))\<partial>lborel)"
+      (* linear combination *) sorry
+    also have "\<dots> = ennreal (2 * a)"
+      apply(subst FTC) 
+      apply(subst  ennreal_mult[symmetric]) using agt0 bgt0 by auto 
+    finally have 2: "(\<Sum>i. ennreal (indicat_real {Suc 0..} i * (a * (real i + sqrt (ln b))) * measure_pmf.prob R {x. a * (real (i - 1) + sqrt (ln b)) < \<bar>f x - x'\<bar>}))
+  \<le> ennreal (2 * a) " .    
 
-  have 1: "measure_pmf.expectation R (\<lambda>x. abs(f x-x'))
-    \<le> ?g 0 + suminf (\<lambda>i. ?g (i + 1) * measure_pmf.prob R {x. abs(f x-x')> ?g i  })"
-    sorry 
-  also have "\<dots> \<le> ?g 0 + 2 * a"
-    apply(rule add_left_mono) apply (fact 2) done
-  finally show ?thesis by (auto simp: algebra_simps)
+
+    have nontopI: "\<And>T f . T \<le> ennreal f \<Longrightarrow> T \<noteq> \<top>"  
+      using ennreal_less_top leD by blast  
+
+      have p: "(\<Sum>i. ennreal (indicat_real {Suc 0..} i * (a * (real i + sqrt (ln b))) * measure_pmf.prob R {x. a * (real (i - 1) + sqrt (ln b)) < \<bar>f x - x'\<bar>}))
+        = ennreal (\<Sum>i.  (indicat_real {Suc 0..} i * (a * (real i + sqrt (ln b))) * measure_pmf.prob R {x. a * (real (i - 1) + sqrt (ln b)) < \<bar>f x - x'\<bar>}))"
+        apply(rule suminf_ennreal)
+        subgoal apply simp apply(rule mult_nonneg_nonneg) apply(rule mult_nonneg_nonneg) using agt0 apply auto
+          using b' by(auto intro!: mult_nonneg_nonneg)
+        subgoal apply(rule nontopI[OF 2]) .
+        done
+
+      have 22: "(\<Sum>i.  (indicat_real {1..} i * (a * (real i + sqrt (ln b))) * measure_pmf.prob R {x. a * (real (i - 1) + sqrt (ln b)) < \<bar>f x - x'\<bar>})) 
+              \<le> 2*a"
+        using 2[unfolded p]
+        apply(subst (asm) ennreal_le_iff) using agt0 by auto
+
+      thm suminf_ennreal
+
+  thm nn_integral_real_affine[where c=1 and t="sqrt (ln b)", symmetric, simplified]
+ 
+
+
+  term "integral\<^sup>L"
+
+      find_theorems "_ has_derivative _" exp
+      find_theorems "_ has_derivative _" "( * )"
+      find_theorems "_ has_field_derivative _" "( * )"
+      find_theorems "_ has_real_derivative _" "( * )"
+
+  (* letzter schritt in der abschätzung *)
+  thm nn_integral_FTC_atLeast
+  thm nn_integral_real_affine[where c = 1 and t = 1, simplified] (* Integral-Shift um 1 *)
+  find_theorems set_nn_integral
+
+  thm pmf_expectation_eq_infsetsum
+
+
+  have "\<integral>\<^sup>+ x. ennreal \<bar>f x - x'\<bar> \<partial>measure_pmf R
+  \<le> ennreal (a * (0 + sqrt (ln b)) + (\<Sum>x. indicat_real {1..} (real x) * (a * (real x + sqrt (ln b)) * measure_pmf.prob R {y. a * (real x - 1 + sqrt (ln b)) < \<bar>f y - x'\<bar>})))"
+    using A .
+  also have "\<dots> = ennreal (a * (0 + sqrt (ln b))
+       + (\<Sum>x. indicat_real {1..} x * (a * (real x + sqrt (ln b))) * measure_pmf.prob R {y. a * (real (x - 1) + sqrt (ln b)) < \<bar>f y - x'\<bar>}))"
+    apply(rule ennreal_cong) apply simp apply(rule suminf_cong)
+    by(auto simp add: indicator_def ff ) 
+  also have "\<dots> \<le> ennreal (a * (0 + sqrt (ln b))+ 2 * a)"
+    apply(rule ennreal_leI)
+    apply(rule add_left_mono)  
+    apply(rule 22) .
+  also have "\<dots> \<le> ennreal (a * (2 + sqrt (ln b)))" by (simp add: algebra_simps)
+  finally have ALL: "\<integral>\<^sup>+ x. ennreal \<bar>f x - x'\<bar> \<partial>measure_pmf R \<le> ennreal (a * (2 + sqrt (ln b)))" .
+
+  find_theorems measure_pmf.expectation ennreal 
+  term "integral\<^sup>L"
+
+  show "measure_pmf.expectation R (\<lambda>x. abs(f x-x')) \<le> (a* (2+sqrt(ln b)))"
+    apply(rule integral_real_bounded)
+    subgoal apply(rule mult_nonneg_nonneg) using agt0 b' by auto
+    subgoal using ALL .
+    done  
 qed
 
 lemma PP': " measure_pmf.expectation p (\<lambda>x. measure_pmf.expectation p (\<lambda>y. f x y))
@@ -1190,17 +1569,20 @@ proof -
     using bdd by auto
 qed
 
+lemma a[simp]: "m > 0 \<Longrightarrow> integrable (measure_pmf (Samples m D)) (\<lambda>xa. \<bar>TrainErr xa {0..<m} h - TrainErr x {0..<m} h\<bar>)"
+  apply(auto intro!: measure_pmf.integrable_const_bound AE_pmfI)
+  using TError_bounded .
+
+
 lemma bdd_above_expectation: 
   "m>0 \<Longrightarrow> bdd_above ((\<lambda>h. measure_pmf.expectation (Samples m D) (\<lambda>S'. \<bar>TrainErr S' {0..<m} h - TrainErr x {0..<m} h\<bar>)) ` H)"
       unfolding bdd_above_def
-      apply(rule exI[where x=2])
+      apply(rule exI)
       apply safe
       apply(rule measure_pmf.integral_le_const)
-      subgoal sorry
-      subgoal
+      apply simp 
         apply(rule AE_pmfI)
-        apply(rule TError_bounded)   by simp
-      done  
+        apply(rule TError_bounded)   by simp 
     
 lemma abs_nnI: 
   fixes a b :: real
@@ -1221,14 +1603,21 @@ proof -
   finally show ?thesis .
 qed
 
+
+
+
 lemma assumes "set_pmf D \<subseteq> (X\<times>Y)"
       and delta_nn: "\<delta>\<in>{x.0<x\<and>x<1}"
     shows theorem611: "measure_pmf.prob (Samples m D) {S. \<forall>h\<in>H. abs(PredErr D h - TrainErr S {0..<m} h)
                    \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(m/2))} \<ge> 1 - \<delta>"
       (is "measure_pmf.prob _ {S. \<forall>h\<in>H. ?err S h \<le> ?bnd } \<ge> _")
 proof -
-  have bnd_gt0: "?bnd > 0"   sorry
   have m_gt0: "m>0" sorry
+  have "growth (2 * m) > 1" sorry
+  then have "ln (growth (2 * m)) > 0" by simp
+  then have "sqrt (ln (growth (2 * m))) > 0" by simp
+  then have bnd_gt0: "?bnd > 0" using m_gt0 delta_nn
+    by (auto intro!: divide_pos_pos add_pos_pos) 
   have finiteY: "finite Y" sorry (* hmm, not so sure here! *)
 
   
@@ -1286,6 +1675,10 @@ proof -
     have finite_C: "finite ?C" using cardC C_nonempty m_gt0 by auto
     term "MAXIMUM"
     term "restrictH H_map ?C Y"
+    term "integral\<^sup>N (measure_pmf (Samples1 m (pmf_of_set {-1,1::real})))
+         (\<lambda>\<sigma>.
+               \<Squnion>h\<in>H. \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0)  
+                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0))) {0..<m})  \<bar>  / m )"
     have "
         measure_pmf.expectation (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
@@ -1523,20 +1916,57 @@ measure_pmf.expectation R
      
     using AE_pmfI by blast  
 
+  have abs_twoway: "\<And>a b:: real. b\<ge>0 \<Longrightarrow> -b \<le> a \<Longrightarrow> a\<le>b \<Longrightarrow> abs a \<le> b" by auto
+
+  have abs_exp_diff_ub: 
+    "\<And>y x. \<bar>measure_pmf.expectation (Samples m D) (\<lambda>S'. TrainErr S' {0..<m} x) - TrainErr y {0..<m} x\<bar> \<le> 1+1"
+    apply(rule order.trans)
+     apply(rule abs_triangle_ineq4)   apply(rule add_mono)
+     apply(rule abs_nnI)
+      apply(rule measure_pmf.integral_ge_const)
+    using m_gt0 apply(auto intro!: measure_pmf.integrable_const_bound AE_pmfI abs_nnI TrainErr_le1  simp: TrainErr_nn )
+     apply(rule TrainErr_le1) apply auto
+    apply(rule measure_pmf.integral_le_const)
+    using m_gt0 apply(auto intro!: measure_pmf.integrable_const_bound AE_pmfI abs_nnI TrainErr_le1  simp: TrainErr_nn )
+    apply(rule TrainErr_le1) apply auto
+    done 
+  have abs_exp_diff_ub2: 
+    "\<And>y x. \<bar>measure_pmf.expectation (Samples m D) (\<lambda>S'. TrainErr S' {0..<m} x - TrainErr y {0..<m} x)\<bar> \<le> 2" 
+    apply(rule abs_twoway) apply simp
+    subgoal  
+      apply(rule measure_pmf.integral_ge_const)
+      using m_gt0 by(auto intro!: measure_pmf.integrable_const_bound AE_pmfI abs_bound_neg TError_bounded TrainErr_le1) 
+    subgoal 
+      apply(rule measure_pmf.integral_le_const)
+      using m_gt0 by(auto intro!: measure_pmf.integrable_const_bound AE_pmfI  TError_bounded TrainErr_le1 intro: abs_bound_pos) 
+    done  
+
   have "measure_pmf.expectation (Samples m D) (\<lambda>S. Sup (?err S ` H))
       =measure_pmf.expectation (Samples m D)
            (\<lambda>S. \<Squnion>h\<in>H. \<bar>measure_pmf.expectation (Samples m D) (\<lambda>S'.  TrainErr S' {0..<m} h )
                - TrainErr S {0..<m} h\<bar>)" apply(subst PredErr_as_expectation[where m=m]) ..
-  also have "... \<le> measure_pmf.expectation (Samples m D)
+  also have "... = measure_pmf.expectation (Samples m D)
            (\<lambda>S. \<Squnion>h\<in>H. \<bar>measure_pmf.expectation (Samples m D) (\<lambda>S'. TrainErr S' {0..<m} h - TrainErr S {0..<m} h )
                \<bar>)"
-    apply(rule expectation_mono)
-    subgoal sorry
-    subgoal sorry
-    apply(rule cSUP_mono[OF nnH])
-    subgoal sorry
-    subgoal for x n apply(rule bexI[where x=n]) sorry (* not sure here! *)
-    done  
+  proof -
+
+    { fix S h
+      have " measure_pmf.expectation (Samples m D) (\<lambda>S'. TrainErr S' {0..<m} h - TrainErr S {0..<m} h )
+            = measure_pmf.expectation (Samples m D) (\<lambda>S'. TrainErr S' {0..<m} h + (- TrainErr S {0..<m} h) )" by simp
+      also have "\<dots> = measure_pmf.expectation (Samples m D) (\<lambda>S'. TrainErr S' {0..<m} h) - TrainErr S {0..<m} h "
+
+        apply(subst Bochner_Integration.integral_add)
+        subgoal using m_gt0 apply (auto intro!: measure_pmf.integrable_const_bound AE_pmfI abs_nnI TrainErr_nn)
+            apply(rule TrainErr_le1) by auto
+        subgoal by simp
+        by simp
+      finally have "measure_pmf.expectation (Samples m D) (\<lambda>S'. TrainErr S' {0..<m} h - TrainErr S {0..<m} h )
+          = measure_pmf.expectation (Samples m D) (\<lambda>S'. TrainErr S' {0..<m} h) - TrainErr S {0..<m} h".
+    } note * = this
+
+    show ?thesis
+      unfolding * .. 
+  qed
   also have "\<dots> \<le> measure_pmf.expectation (Samples m D)
            (\<lambda>S. \<Squnion>h\<in>H. measure_pmf.expectation (Samples m D)
          (\<lambda>S'. \<bar>TrainErr S' {0..<m} h - TrainErr S {0..<m} h\<bar> ) )"
@@ -1567,6 +1997,8 @@ measure_pmf.expectation R
          (\<lambda>S'. \<Squnion>h\<in>H. \<bar>TrainErr S' {0..<m} h - TrainErr S {0..<m} h\<bar> ) )"
       apply(rule expectation_mono) 
       subgoal (* integrable side condition *)
+
+
         apply(auto intro!:  measure_pmf.integrable_const_bound AE_pmfI
                 abs_nnI  ) 
         subgoal
@@ -1590,8 +2022,7 @@ measure_pmf.expectation R
                 measure_pmf.integrable_const_bound AE_pmfI intro: TError_bounded )
 
 
-        subgoal (* integrable side condition *)
-          
+        subgoal (* integrable side condition *) 
         apply(auto intro!:  measure_pmf.integrable_const_bound AE_pmfI
                 abs_nnI  ) 
           subgoal 
@@ -1603,8 +2034,10 @@ measure_pmf.expectation R
             using m_gt0 apply(auto intro!: measure_pmf.integral_le_const bdd_aboveI2 abs_nnI
                 measure_pmf.integrable_const_bound AE_pmfI  )  
                  using nnH by(auto intro!: nervig1 nervig2 bdd_aboveI2 intro: TError_bounded)
-      apply(rule expectation_Sup_le) done 
-    also have "\<dots> = measure_pmf.expectation (Samples m D)
+               apply(rule expectation_Sup_le) 
+               sorry
+               
+   also have "\<dots> = measure_pmf.expectation (Samples m D)
            (\<lambda>S.  measure_pmf.expectation (Samples m D)
          (\<lambda>S'. \<Squnion>h\<in>H. \<bar>sum (\<lambda>i. case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0) {0..<m} / card {0..<m}
                        - sum (\<lambda>i. case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0) {0..<m} / card {0..<m}\<bar> ) )"
@@ -1676,7 +2109,19 @@ measure_pmf.expectation R
          (\<lambda>S'. 
                \<Squnion>h\<in>H. \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0)  
                        -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0))) {0..<m})  \<bar>  / m ) ))"  
-      apply(subst expectation_linear) ..
+      term "nn_integral (measure_pmf (Samples m D))"
+      find_theorems nn_integral name:Fubini
+      term "indicator {h x} y"
+      thm indicator_def
+      apply(subst expectation_linear')
+      subgoal
+      apply(measurable)
+
+        term pair_pmf
+        thm measure_pmf.integrable_const_bound  bind_pair_pmf
+        apply(auto intro!:  measure_pmf.integrable_const_bound ) 
+        sorry
+      ..
     also have "\<dots> = 
            measure_pmf.expectation (Samples m D)
            (\<lambda>S.  measure_pmf.expectation (Samples m D)
@@ -1690,33 +2135,87 @@ measure_pmf.expectation R
            (\<lambda>S.  measure_pmf.expectation (Samples m D)
          (\<lambda>S'. ?bnd * \<delta>))"
       apply(rule expectation_mono)  
+      (* first part *)
       subgoal (* integrable side condition *)        
         apply(auto intro!:  measure_pmf.integrable_const_bound AE_pmfI
-                abs_nnI  ) 
-        subgoal (* non neg side condition *)
-          apply(auto intro!: measure_pmf.integral_ge_const)
+            abs_nnI  ) 
+        subgoal for S' (* non neg side condition *)
+          apply(auto intro!: measure_pmf.integral_ge_const AE_pmfI)
           subgoal (* integrable side condition *)
-          
-        apply(auto intro!:  measure_pmf.integrable_const_bound AE_pmfI
+
+            apply(auto intro!:  measure_pmf.integrable_const_bound[where B=2] AE_pmfI
                 abs_nnI  ) 
-            subgoal  apply(auto intro!: measure_pmf.integral_ge_const AE_pmfI )
+            subgoal for S  apply(auto intro!: measure_pmf.integral_ge_const AE_pmfI )
               subgoal 
-        apply(auto intro!:  measure_pmf.integrable_const_bound AE_pmfI
-                abs_nnI  ) 
-                subgoal (* non neg *)
+                apply(auto intro!:  measure_pmf.integrable_const_bound[where B=2] AE_pmfI
+                    abs_nnI  ) 
+                subgoal for d (* non neg *)
                   apply(rule nervig1)
-            using m_gt0  apply (auto intro!: measure_pmf.integral_ge_const bdd_aboveI2  
-                measure_pmf.integrable_const_bound AE_pmfI   mult_imp_div_pos_le )  
-            apply(rule order.trans[OF sum_abs])
-             apply(rule sumabsch) apply simp
-             apply(drule Samples1_set_pmf)
-            apply auto
-          sorry
-      subgoal sorry
+                  subgoal  apply(rule bdd_aboveI2[where M="2"])
+                    using m_gt0  apply (auto intro!: measure_pmf.integral_ge_const    
+                        measure_pmf.integrable_const_bound AE_pmfI   mult_imp_div_pos_le )  
+                    apply(rule order.trans[OF sum_abs])
+                    apply(rule sumabsch) apply simp
+                    apply(drule Samples1_set_pmf)
+                    apply(rule abs_twoway ) apply simp
+                    subgoal for h i apply(cases "S i", cases "S' i") by auto
+                    subgoal for h i apply(cases "S i", cases "S' i") by auto
+                    done
+                  subgoal using nnH by auto
+                  subgoal by simp 
+                  done
+                apply (rule nervig2)
+                subgoal  apply(rule bdd_aboveI2[where M="2"])
+                  using m_gt0  apply (auto intro!: measure_pmf.integral_ge_const    
+                      measure_pmf.integrable_const_bound AE_pmfI   mult_imp_div_pos_le )  
+                  apply(rule order.trans[OF sum_abs])
+                  apply(rule sumabsch) apply simp
+                  apply(drule Samples1_set_pmf)
+                  apply(rule abs_twoway ) apply simp
+                  subgoal for h i apply(cases "S i", cases "S' i") by auto
+                  subgoal for h i apply(cases "S i", cases "S' i") by auto
+                  done
+                subgoal using nnH by auto
+                using m_gt0 apply (auto intro!: mult_imp_div_pos_le)  
+                apply(rule order.trans[OF sum_abs])
+                apply(rule sumabsch) apply simp
+                apply(drule Samples1_set_pmf)
+                apply(rule abs_twoway ) apply simp
+                subgoal for h d i apply(cases "S i", cases "S' i") by auto
+                subgoal for h d i apply(cases "S i", cases "S' i") by auto
+                done
+              subgoal apply (rule nervig1)
+                subgoal using m_gt0 apply(auto intro!: mult_imp_div_pos_le bdd_aboveI2[where M="2"])  
+                  apply(rule order.trans[OF sum_abs])
+                  apply(rule sumabsch) apply simp
+                  apply(drule Samples1_set_pmf)
+                  apply(rule abs_twoway ) apply simp
+                  subgoal for h i apply(cases "S i", cases "S' i") by auto
+                  subgoal for h i apply(cases "S i", cases "S' i") by auto
+                  done  
+                subgoal using nnH by simp
+                subgoal by simp
+                done
+              done
+            subgoal 
+                    using m_gt0  apply (auto intro!: measure_pmf.integral_le_const    
+                        measure_pmf.integrable_const_bound[where B=2] AE_pmfI   mult_imp_div_pos_le ) 
+                    subgoal  sorry
+                    
+                    subgoal sorry
+                    done
+            done
+          subgoal sorry
+          subgoal sorry
+          done
+        sorry      
+      (* second part *)
+      subgoal (* integrable side condition *)   
+        by (rule measure_pmf.integrable_const)  
       apply(rule expectation_mono)
       subgoal sorry
       subgoal sorry
-      apply(rule fff) by auto 
+      apply(rule fff) by auto  
     also have "\<dots> =   ?bnd * \<delta>"
       apply(subst expectation_const)
       apply(subst expectation_const) ..
