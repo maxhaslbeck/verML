@@ -1038,13 +1038,6 @@ proof -
   have *: "\<And>x.  x \<le> g (LEAST i. x \<le> g i)"     
     apply(rule LeastI_ex) by(rule p) 
 
-(*
-  have pla: "\<And>x. 0 < (LEAST i. x \<le> g i) \<Longrightarrow> x > g 0"
-    sorry
-  have "\<And>x. 0 < (LEAST i. x \<le> g i) \<Longrightarrow> x > 0"
-      apply(drule pla) apply(rule le_less_trans[OF assms(3)[of 0]]) .
-*)
-
   have char0': "\<And>x.  x \<le> g 0 \<Longrightarrow> (LEAST i. x \<le> g i) = 0 " by auto 
   have char0'': "\<And>x. (LEAST i. x \<le> g i) = 0  \<Longrightarrow>  x \<le> g 0 " 
     using * by metis
@@ -1076,6 +1069,16 @@ proof -
   proof -
     let ?B = "\<lambda>n. if n = 0 then {..g 0} else {g (n-1)<..g n}"
 
+    have dF: "disjoint_family ?B"
+      unfolding disjoint_family_on_def  apply auto
+        subgoal using  assms(1)[unfolded incseq_def]  
+          by (meson not_less order_trans zero_le)  
+        subgoal  using  assms(1)[unfolded incseq_def]    
+          by (smt less_eq_nat.simps(1))  
+        subgoal using  assms(1)[unfolded incseq_def]    
+          by (smt Suc_pred assms(1) le_less_Suc_eq linorder_neqE_nat mono_invE)   
+        done
+
     have *: "(\<Union>n. ?B n) = UNIV "
     proof (rule, simp, rule)
       fix x
@@ -1100,14 +1103,7 @@ proof -
       apply(subst nn_integral_disjoint_family)
       subgoal apply simp done
       subgoal apply simp done
-      subgoal unfolding disjoint_family_on_def  apply auto
-        subgoal using  assms(1)[unfolded incseq_def]  
-          by (meson not_less order_trans zero_le)  
-        subgoal  using  assms(1)[unfolded incseq_def]    
-          by (smt less_eq_nat.simps(1))  
-        subgoal using  assms(1)[unfolded incseq_def]    
-          by (smt Suc_pred assms(1) le_less_Suc_eq linorder_neqE_nat mono_invE)   
-        done
+      subgoal using dF .
       apply(rule suminf_cong)
       unfolding indicator_def apply auto 
       subgoal apply(rule nn_integral_cong_AE) apply(rule AE_pmfI)
@@ -1118,7 +1114,9 @@ proof -
       done
     also have "\<dots> = suminf  (\<lambda>i. ( if i=0 then ennreal (g 0) * nn_integral (measure_pmf R) (\<lambda>x.  indicator {0..g 0} x)
                         else  ennreal (g i) * nn_integral (measure_pmf R) (\<lambda>x. indicator {g (i-1)<..g i} x)))"
-      sorry
+      using assms(3)  
+      by (auto simp add: ennreal_mult nn_integral_cmult ennreal_indicator
+          intro!:  suminf_cong nn_integral_cong klar)    
     also have "\<dots> = suminf  (\<lambda>i. ( if i=0 then ennreal  (g 0) * ennreal (measure_pmf.prob R {x. x \<in> {0..g 0}})
                         else  ennreal (g i) * ennreal (measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})))"
       apply(rule suminf_cong) apply auto
@@ -1130,7 +1128,9 @@ proof -
     also have "\<dots> = suminf  (\<lambda>i. ennreal ( if i=0 then  (g 0) *  (measure_pmf.prob R {x. x \<in> {0..g 0}})
                         else   (g i) *  (measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})))"
       apply(rule suminf_cong) apply auto
-      sorry 
+      subgoal apply(subst ennreal_mult) using assms(3) by auto
+      subgoal apply(subst ennreal_mult) using assms(3) by auto
+      done 
     finally show  ?thesis .
   qed    
   also have "\<dots> = g 0 * measure_pmf.prob R {x. x \<in> {0..g 0}}
@@ -1170,6 +1170,9 @@ qed
 
 
 
+
+
+
 lemma Lemma_A4:
   assumes agt0: "a>0" and b: "b\<ge>exp 1"
     and absch: "\<And>t. t>0 \<Longrightarrow> measure_pmf.prob R {x. abs(f x-x')>t}\<le> 2*b*exp(-(t^2)/a^2)"
@@ -1206,7 +1209,9 @@ proof -
     apply(rule first_step'[where R="map_pmf (\<lambda>x. abs(f x-x')) R" and g="?g"
               ,  simplified nn_integral_map_pmf measure_map_pmf])
     subgoal unfolding incseq_def using g_mono by simp
-    subgoal using agt0 b'
+    subgoal 
+      (* LIM x sequentially. a * (real x + sqrt (ln b)) :> at_top *)
+      using agt0 b'
       thm filterlim_real_sequentially
       sorry
     subgoal for i apply(cases i) using g_pos[of i] by auto 
@@ -1238,21 +1243,19 @@ proof -
   have "( \<integral>\<^sup>+y\<in>{sqrt (ln b)..}. (  ennreal (y * exp (- y\<^sup>2)))\<partial>lborel) = ennreal (exp (- (sqrt (ln b))\<^sup>2)/2)"
     apply(subst nn_integral_FTC_atLeast[where F="\<lambda>y. (-1) * exp (- y\<^sup>2)/2" and T=0])
     subgoal apply simp done
-    subgoal for x   sorry
+    subgoal for x apply(drule sqrtb_D)
+      (* 1 \<le> x \<Longrightarrow> ((\<lambda>y. - 1 * exp (- y\<^sup>2) / 2) has_real_derivative x * exp (- x\<^sup>2)) (at x) *)
+      sorry
     subgoal apply(drule sqrtb_D) by simp
-    subgoal   apply simp   sorry 
+    subgoal 
+      (* ((\<lambda>y. - 1 * exp (- y\<^sup>2) / 2) \<longlongrightarrow> 0) at_top *)
+      sorry
     subgoal by simp
     done
+
   also have "\<dots> = ennreal (exp (-  ln b)/2)"   using bgt1 by simp
   also have "\<dots> = ennreal (1 / (2 * b))" using exp_diff[where x="0" and y="ln b"] bgt0 by simp 
   finally have FTC: "( \<integral>\<^sup>+y\<in>{sqrt (ln b)..}. (  ennreal (y * exp (- y\<^sup>2)))\<partial>lborel) = ennreal (1/(2*b))" .
-
-  have "\<And>x. 1 \<le> x \<Longrightarrow> ((\<lambda>y. - 1 * exp (- y\<^sup>2)) has_real_derivative x * exp (- x\<^sup>2)) (at x)"  
-    sorry
-
-  have "\<And>x. 1 \<le> x \<Longrightarrow> ((\<lambda>y. - 1 * exp (- y\<^sup>2)) has_derivative (\<lambda>y. y * x * exp (- x\<^sup>2))) (at x)"
-    sorry    
-
 
   term summable
   have "suminf (\<lambda>i. ennreal ( indicat_real {Suc 0..} i * ?g i * measure_pmf.prob R {x. abs(f x-x')> ?g (i-1)  }))
