@@ -266,6 +266,7 @@ lemma PredErr_as_expectation:
   "PredErr D h = measure_pmf.expectation (Samples m D) (\<lambda>S. TrainErr S {0..<m} h )"
   unfolding PredErr_def unfolding TrainErr_def sorry 
 
+term measure
 
 definition E :: "real pmf \<Rightarrow> real"  where
   "E M = (\<integral>x. x \<partial> measure_pmf M)"
@@ -1012,7 +1013,6 @@ proof -
 qed
 
  
-
 lemma
   fixes g :: "nat \<Rightarrow> real" and
     R :: "real pmf"
@@ -1020,41 +1020,80 @@ lemma
     and tends_to_inf: "filterlim g at_top at_top"
     and "\<And>i. g i \<ge> 0" 
     and nn: "\<And>x. x \<in>set_pmf R \<Longrightarrow> x \<ge> 0"
-  shows first_step: 
+  shows first_step': 
     "nn_integral (measure_pmf R) (\<lambda>x. x)
-      \<le> g 0 + suminf (\<lambda>i. indicator {1..} i * (g i * measure_pmf.prob R {x. x > g (i-1)}) ) "
-proof - 
-  let ?step = "\<lambda>x. g (LEAST i. x < g i)"
+      \<le> g 0 + suminf (\<lambda>i. ennreal ( indicator {1..} i * (g i * measure_pmf.prob R {x. x > g (i-1)})) ) "
+proof -
+  let ?step = "\<lambda>x. g (LEAST i. x \<le> g i)"
 
 
-  have tendstoinf: "\<And>K. \<exists>n\<^sub>0.\<forall>n\<ge>n\<^sub>0. (g n) > K" 
+  have tendstoinf: "\<And>K. \<exists>n\<^sub>0.\<forall>n\<ge>n\<^sub>0. (g n) \<ge> K" 
     using tends_to_inf 
     apply (subst (asm) filterlim_at_top[of g sequentially])
     using  eventually_at_top_linorder 
     using eventually_gt_at_top eventually_sequentially  
     by (metis gt_ex less_le_trans)  
-  then have p: "\<And>K. \<exists>n. (g n) > K" by blast
+  then have p: "\<And>K. \<exists>n. (g n) \<ge> K" by blast
 
-  have *: "\<And>x. x \<in> set_pmf R \<Longrightarrow> x < g (LEAST i. x < g i)"
-     
+  have *: "\<And>x.  x \<le> g (LEAST i. x \<le> g i)"     
     apply(rule LeastI_ex) by(rule p) 
 
-  have **: "\<And>x. 0 \<le> x \<Longrightarrow> x \<le> g 0 \<Longrightarrow> (LEAST i. x < g i) = 0"
-    (* stimmt noch nicht ganz *) sorry
+(*
+  have pla: "\<And>x. 0 < (LEAST i. x \<le> g i) \<Longrightarrow> x > g 0"
+    sorry
+  have "\<And>x. 0 < (LEAST i. x \<le> g i) \<Longrightarrow> x > 0"
+      apply(drule pla) apply(rule le_less_trans[OF assms(3)[of 0]]) .
+*)
 
-    
+  have char0': "\<And>x.  x \<le> g 0 \<Longrightarrow> (LEAST i. x \<le> g i) = 0 " by auto 
+  have char0'': "\<And>x. (LEAST i. x \<le> g i) = 0  \<Longrightarrow>  x \<le> g 0 " 
+    using * by metis
+  have charn': "\<And>x n. n>0 \<Longrightarrow> (g (n-1) < x \<and> x \<le> g n) \<Longrightarrow> (LEAST i. x \<le> g i) = n "
+    apply auto apply(rule Least_equality) apply simp
+    using assms(1)[unfolded incseq_def]  
+    by (metis Suc_pred less_Suc_eq_le less_le_trans not_le)  
+  have charn'': "\<And>x n. n>0  \<Longrightarrow> (LEAST i. x \<le> g i) = n  \<Longrightarrow> (g (n-1) < x \<and> x \<le> g n)"
+    apply auto
+    subgoal 
+      by (metis diff_Suc_Suc gr0_implies_Suc le_less_linear less_irrefl minus_nat.diff_0 not_less_Least not_less_less_Suc_eq)
+    subgoal by (rule *)  
+    done
+
+
+
+  have char0: "\<And>x. (LEAST i. x \<le> g i) = 0 \<longleftrightarrow> (  x \<le> g 0)"  
+    using char0' char0'' by metis
+  have charn: "\<And>x n. n>0 \<Longrightarrow> (LEAST i. x \<le> g i) = n \<longleftrightarrow> (g (n-1) < x \<and> x \<le> g n)"
+    using charn' charn'' by metis
+
   have a1: "nn_integral (measure_pmf R) (\<lambda>x. x)
     \<le> nn_integral (measure_pmf R) ?step"
     apply(rule nn_integral_mono_AE)
     apply (auto intro!: AE_pmfI)
     using * ennreal_leI by fastforce  
-  also have "\<dots> = suminf (\<lambda>i. if i=0 then g 0 *  measure_pmf.prob R {x. x \<in> {0..g 0}}
-                        else g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})" 
+  also have "\<dots> = suminf (\<lambda>i. ennreal ( if i=0 then g 0 *  measure_pmf.prob R {x. x \<in> {0..g 0}}
+                        else g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}}))" 
   proof -
-    let ?B = "\<lambda>n. if n = 0 then {0..g 0} else {g (n-1)<..g n}"
+    let ?B = "\<lambda>n. if n = 0 then {..g 0} else {g (n-1)<..g n}"
+
+    have *: "(\<Union>n. ?B n) = UNIV "
+    proof (rule, simp, rule)
+      fix x
+      show "x \<in> (\<Union>n. if n = 0 then {..g 0} else {g (n - 1)<..g n})"
+        apply(rule UN_I[where a="(LEAST i. x \<le> g i)"])
+         apply simp 
+        apply(cases "(LEAST i. x \<le> g i) = 0")
+        subgoal apply simp using char0'' by blast
+        subgoal apply simp using charn'' by auto
+        done 
+    qed
+
+    have klar: "\<And>a b c d. a = b \<Longrightarrow> c = d \<Longrightarrow> a * c = b * d" by simp
+    have auchklar: "\<And>a b.{a<..b} =  {x. a < x \<and> x \<le> b}"
+      unfolding greaterThanAtMost_def greaterThan_def atMost_def by auto
 
     have "nn_integral (measure_pmf R) ?step = 
-       set_nn_integral (measure_pmf R) (\<Union>n. ?B n) ?step" sorry 
+       set_nn_integral (measure_pmf R) (\<Union>n. ?B n) ?step" unfolding * by simp 
     term "set_nn_integral (measure_pmf R) (\<Union>n. ?B n) ?step"
     also have "\<dots> = suminf  (\<lambda>i. ( if i=0 then nn_integral (measure_pmf R) (\<lambda>x. g 0 * indicator {0..g 0} x)
                         else nn_integral (measure_pmf R) (\<lambda>x. g i * indicator {g (i-1)<..g i} x)))"
@@ -1071,30 +1110,60 @@ proof -
         done
       apply(rule suminf_cong)
       unfolding indicator_def apply auto 
-      subgoal apply(rule nn_integral_cong) apply auto apply(rule ennreal_cong) apply(subst **) apply auto done
-      subgoal apply(rule nn_integral_cong) apply auto (* was ähnliches wie ** *) sorry
+      subgoal apply(rule nn_integral_cong_AE) apply(rule AE_pmfI)
+        apply(drule assms(4))         
+        by auto (* apply(rule ennreal_cong) using char0 by metis *) 
+      subgoal for x apply(rule nn_integral_cong_AE) apply(rule AE_pmfI)
+        apply(drule assms(4))  apply auto apply(subst charn'[of x]) by auto
       done
-    also have "\<dots> = suminf  (\<lambda>i. ( if i=0 then g 0 * nn_integral (measure_pmf R) (\<lambda>x.  indicator {0..g 0} x)
-                        else  g i * nn_integral (measure_pmf R) (\<lambda>x. indicator {g (i-1)<..g i} x)))"
+    also have "\<dots> = suminf  (\<lambda>i. ( if i=0 then ennreal (g 0) * nn_integral (measure_pmf R) (\<lambda>x.  indicator {0..g 0} x)
+                        else  ennreal (g i) * nn_integral (measure_pmf R) (\<lambda>x. indicator {g (i-1)<..g i} x)))"
       sorry
-    also have "\<dots> = suminf  (\<lambda>i. ( if i=0 then g 0 * measure_pmf.prob R {x. x \<in> {0..g 0}}
-                        else  g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}}))"
-      sorry
+    also have "\<dots> = suminf  (\<lambda>i. ( if i=0 then ennreal  (g 0) * ennreal (measure_pmf.prob R {x. x \<in> {0..g 0}})
+                        else  ennreal (g i) * ennreal (measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})))"
+      apply(rule suminf_cong) apply auto
+      subgoal apply(rule klar) apply simp 
+        by (metis (mono_tags, lifting) antisym atLeastAtMost_iff measure_pmf.emeasure_eq_measure mem_Collect_eq subsetI)  
+      subgoal apply(rule klar) apply simp
+        apply(subst measure_pmf.emeasure_eq_measure) by (auto simp: auchklar)
+      done
+    also have "\<dots> = suminf  (\<lambda>i. ennreal ( if i=0 then  (g 0) *  (measure_pmf.prob R {x. x \<in> {0..g 0}})
+                        else   (g i) *  (measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})))"
+      apply(rule suminf_cong) apply auto
+      sorry 
     finally show  ?thesis .
   qed    
   also have "\<dots> = g 0 * measure_pmf.prob R {x. x \<in> {0..g 0}}
-                   + suminf (\<lambda>i. indicator {1..} i * (g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}}) ) "
-    sorry
+                   + suminf (\<lambda>i. ennreal ( indicator {1..} i * (g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})) ) "
+  proof -
+    have " suminf  (\<lambda>i. ennreal ( if i=0 then  (g 0) *  (measure_pmf.prob R {x. x \<in> {0..g 0}})
+                        else   (g i) *  (measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})))
+        = suminf (\<lambda>i. ennreal ( if i=0 then (g 0) *  (measure_pmf.prob R {x. x \<in> {0..g 0}}) else 0))
+           + suminf (\<lambda>i. ennreal ( if i=0 then 0 else (g i) *  (measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})))"
+      apply(subst suminf_add) by (auto intro: suminf_cong)
+    also have " suminf (\<lambda>i. ennreal ( if i=0 then (g 0) *  (measure_pmf.prob R {x. x \<in> {0..g 0}})
+                        else 0)) = (g 0) *  (measure_pmf.prob R {x. x \<in> {0..g 0}})"
+      apply(subst suminf_finite[where N="{0}"]) by auto
+    also have " suminf (\<lambda>i. ennreal ( if i=0 then 0 else (g i) *  (measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})))
+        = suminf (\<lambda>i. ennreal ( indicator {1..} i * (g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})) ) "
+      by (auto intro!: suminf_cong)
+    finally show "(\<Sum>i. ennreal (if i = 0 then g 0 * measure_pmf.prob R {x. x \<in> {0..g 0}} else g i * measure_pmf.prob R {x. x \<in> {g (i - 1)<..g i}})) =
+            ennreal (g 0 * measure_pmf.prob R {x. x \<in> {0..g 0}}) + (\<Sum>i. ennreal (indicat_real {1..} i * (g i * measure_pmf.prob R {x. x \<in> {g (i - 1)<..g i}})))" .
+  qed
   also have "\<dots> \<le> g 0 
-                   + suminf (\<lambda>i. indicator {1..} i * (g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}}) ) "
-    sorry
+                   + suminf (\<lambda>i. ennreal (indicator {1..} i * (g i * measure_pmf.prob R {x. x \<in> {g (i-1)<..g i}})) ) "
+    apply(rule add_right_mono) apply(rule ennreal_leI)
+    apply(rule order.trans) apply(rule mult_left_mono[of _ 1]) using assms(3) by auto
   also have "\<dots> \<le> g 0 
-                   + suminf (\<lambda>i. indicator {1..} i * (g i * measure_pmf.prob R {x. x > g (i-1)}) ) "
-    sorry
+                   + suminf (\<lambda>i. ennreal (indicator {1..} i * (g i * measure_pmf.prob R {x. x > g (i-1)}) )) "
+    apply(rule add_left_mono) apply(rule suminf_le)
+    subgoal apply safe apply(rule ennreal_leI) apply(rule mult_left_mono) apply(rule mult_left_mono)
+      apply(rule subsetlesspmf) using assms(3) by auto
+    by auto 
   finally 
   show "nn_integral (measure_pmf R) (\<lambda>x. x)
       \<le> g 0 
-                   + suminf (\<lambda>i. indicator {1..} i * (g i * measure_pmf.prob R {x. x > g (i-1)}) ) "
+                   + suminf (\<lambda>i. ennreal (indicator {1..} i * (g i * measure_pmf.prob R {x. x > g (i-1)}) )) "
     .
 
 qed
@@ -1132,9 +1201,9 @@ proof -
   have ff: "\<And>n. n>0 \<Longrightarrow> real (n - Suc 0) = real n - 1" by simp
   have A: "\<integral>\<^sup>+ x. ennreal \<bar>f x - x'\<bar> \<partial>measure_pmf R
       \<le>  ?g 0 +
-          (\<Sum>i. (indicat_real {1..} i * (?g i * measure_pmf.prob R {y. ?g (i-1) < \<bar>f y - x'\<bar>})))"
+          (\<Sum>i. ennreal (indicat_real {1..} i * (?g i * measure_pmf.prob R {y. ?g (i-1) < \<bar>f y - x'\<bar>})))"
     apply(rule ord_le_eq_trans)
-    apply(rule first_step[where R="map_pmf (\<lambda>x. abs(f x-x')) R" and g="?g"
+    apply(rule first_step'[where R="map_pmf (\<lambda>x. abs(f x-x')) R" and g="?g"
               ,  simplified nn_integral_map_pmf measure_map_pmf])
     subgoal unfolding incseq_def using g_mono by simp
     subgoal using agt0 b'
@@ -1142,9 +1211,9 @@ proof -
       sorry
     subgoal for i apply(cases i) using g_pos[of i] by auto 
     subgoal by auto
-    subgoal apply simp
+    subgoal apply simp done (*
       apply(rule ennreal_cong)  apply simp apply(rule suminf_cong)
-      by(auto simp add: indicator_def ff )        
+      by(auto simp add: indicator_def ff )        *)
     done
 
 
@@ -1288,16 +1357,19 @@ proof -
 
 
   have "\<integral>\<^sup>+ x. ennreal \<bar>f x - x'\<bar> \<partial>measure_pmf R
-  \<le> ennreal (a * (0 + sqrt (ln b)) + (\<Sum>x. indicat_real {1..} (real x) * (a * (real x + sqrt (ln b)) * measure_pmf.prob R {y. a * (real x - 1 + sqrt (ln b)) < \<bar>f y - x'\<bar>})))"
+  \<le> ennreal (a * (0 + sqrt (ln b))) 
+      + (\<Sum>x. ennreal ( indicat_real {1..} x * (a * (real x + sqrt (ln b))
+                       * measure_pmf.prob R {y. a * (real (x - 1) + sqrt (ln b)) < \<bar>f y - x'\<bar>})))"
     using A .
-  also have "\<dots> = ennreal (a * (0 + sqrt (ln b))
-       + (\<Sum>x. indicat_real {1..} x * (a * (real x + sqrt (ln b))) * measure_pmf.prob R {y. a * (real (x - 1) + sqrt (ln b)) < \<bar>f y - x'\<bar>}))"
-    apply(rule ennreal_cong) apply simp apply(rule suminf_cong)
-    by(auto simp add: indicator_def ff ) 
-  also have "\<dots> \<le> ennreal (a * (0 + sqrt (ln b))+ 2 * a)"
-    apply(rule ennreal_leI)
-    apply(rule add_left_mono)  
-    apply(rule 22) .
+  also have "\<dots> = ennreal (a * (0 + sqrt (ln b)))
+       + (\<Sum>x. ennreal (indicat_real {1..} x * (a * (real x + sqrt (ln b))) * measure_pmf.prob R {y. a * (real (x - 1) + sqrt (ln b)) < \<bar>f y - x'\<bar>}))"
+    apply simp   apply(rule suminf_cong)
+    by(auto simp add: indicator_def   ) 
+  also have "\<dots> \<le> ennreal (a * (0 + sqrt (ln b))) + ennreal (  2 * a)"
+    apply(rule add_left_mono)
+    using 2 apply simp done
+  also have "\<dots> = ennreal (a * (0 + sqrt (ln b))+ 2 * a)"
+    apply(subst ennreal_plus[symmetric]) using agt0 b' by auto
   also have "\<dots> \<le> ennreal (a * (2 + sqrt (ln b)))" by (simp add: algebra_simps)
   finally have ALL: "\<integral>\<^sup>+ x. ennreal \<bar>f x - x'\<bar> \<partial>measure_pmf R \<le> ennreal (a * (2 + sqrt (ln b)))" .
 
