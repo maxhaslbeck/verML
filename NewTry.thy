@@ -1170,7 +1170,30 @@ qed
 
 
 
-
+(* by Max W. Haslbeck & Manuel Eberl *)
+lemma nn_integral_nats_reals:
+  shows "(\<integral>\<^sup>+ i. ennreal (f i) \<partial>count_space UNIV) =
+         \<integral>\<^sup>+x\<in>{0::real..}. ennreal (f (nat \<lfloor>x\<rfloor>))\<partial>lborel"
+proof -
+  have "x < 1 + (floor x)"for x::real
+    by linarith
+  then have "\<exists>n. real n \<le> x \<and> x < 1 + real n" if "x \<ge> 0" for x
+    using that of_nat_floor by (intro exI[of _ "nat (floor x)"]) auto
+  then have "{0..} = (\<Union>n. {real n..<real (Suc n)})"
+    by auto
+  then have "\<integral>\<^sup>+x\<in>{0::real..}. f (nat \<lfloor>x\<rfloor>)\<partial>lborel = 
+             (\<Sum>n. \<integral>\<^sup>+x\<in>{real n..<1 + real n}. ennreal (f (nat \<lfloor>x\<rfloor>))\<partial>lborel)"
+    by (auto simp add: disjoint_family_on_def nn_integral_disjoint_family)
+  also have "\<dots> = (\<Sum>n. \<integral>\<^sup>+x\<in>{real n..<1 + real n}. ennreal (f n)\<partial>lborel)"
+    by(subst suminf_cong,rule nn_integral_cong_AE)
+      (auto intro!: eventuallyI  simp add: indicator_def floor_eq4)
+  also have "\<dots> = (\<Sum>n. ennreal (f n))"
+    by (auto intro!: suminf_cong simp add: nn_integral_cmult)
+  also have "\<dots> = (\<integral>\<^sup>+ i. ennreal (f i) \<partial>count_space UNIV)"
+    by (simp add: nn_integral_count_space_nat)
+  finally show ?thesis
+    by simp
+qed
 
 
 lemma Lemma_A4:
