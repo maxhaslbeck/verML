@@ -1169,7 +1169,6 @@ proof -
 qed
 
 
-
 (* by Max W. Haslbeck & Manuel Eberl *)
 lemma nn_integral_nats_reals:
   shows "(\<integral>\<^sup>+ i. ennreal (f i) \<partial>count_space UNIV) =
@@ -1308,12 +1307,70 @@ proof -
     apply(rule suminf_mult) 
     subgoal sorry
     done *)
-  also have "\<dots> \<le> \<integral>\<^sup>+x\<in>{1..}. ennreal ( (2 * b * a) * ((x + sqrt (ln b)) * exp (- (a * (x - 1 + sqrt (ln b)))\<^sup>2 / a\<^sup>2)))\<partial>lborel"
-      sorry (* HELP needed ?! *)
-    also have "\<dots> = \<integral>\<^sup>+x\<in>{1..}. ennreal ( (2 * b * a) * ((((sqrt (ln b) - 1) + x) + 1) * exp (- (a * ((sqrt (ln b) - 1) + x))\<^sup>2 / a\<^sup>2)))\<partial>lborel"
+  also have "\<dots> = suminf (\<lambda>i. ennreal ( (2 * b * a) * (indicat_real {Suc 0..} (real i) * ((real i + sqrt (ln b)) * (exp(-((a * (real (i) - 1 + sqrt (ln b)))^2)/a^2))))))"
+    apply(rule suminf_cong) unfolding indicator_def 
+    by(auto simp: ff) 
+  also have "\<dots> = suminf (\<lambda>i. ennreal ( (2 * b * a) * (indicat_real {Suc 0..} (real i) * ((real i + sqrt (ln b)) * (exp(-(( (real (i) - 1 + sqrt (ln b)))^2)))))))"
+    using agt0  by(simp add:  power2_eq_square)
+  also have "\<dots> \<le> \<integral>\<^sup>+x\<in>{1..}. ennreal ( (2 * b * a) * ((x + sqrt (ln b)) * exp (- ((x - 1 + sqrt (ln b)))\<^sup>2)))\<partial>lborel"
+      (is "suminf (\<lambda>i. ennreal (?f (real i))) \<le> nn_integral _  (\<lambda>x. ?g x * indicator ?A x)")
+  proof -
+    term set_nn_integral
+    thm nn_integral_disjoint_family
+    have is1: "\<And>n. emeasure (restrict_space lborel {real n..<1 + real n}) {real n..<1 + real n} = (1::ennreal)"
+      apply(subst emeasure_restrict_space) by simp_all
+
+    let ?B ="%i. {real i..<1 + real i}"
+    have "disjoint_family ?B" by(auto simp: disjoint_family_on_def)
+
+  have "x < 1 + (floor x)"for x::real
+    by linarith
+  then have "\<exists>n. real n \<le> x \<and> x < 1 + real n" if "x \<ge> 0" for x
+    using that of_nat_floor by (intro exI[of _ "nat (floor x)"]) auto
+  then have pf: " (\<Union>i.{real i..<1 + real i}) = {0..} "
+    by auto
+
+
+    have "suminf (\<lambda>i. ennreal (?f i)) = suminf (\<lambda>i. set_nn_integral lborel {real i..<1 + real i} (\<lambda>x. ?f i) )"
+      
+      apply(rule suminf_cong)
+      apply(subst nn_integral_restrict_space[symmetric]) apply simp
+      apply(subst nn_integral_const)  
+      apply simp apply(subst is1) by simp  
+    also have "\<dots> \<le>  suminf (\<lambda>i. set_nn_integral lborel {real i..<1 + real i} (\<lambda>x. ?f x) )"
+      apply(rule suminf_le)
+      subgoal apply safe
+        apply(rule nn_integral_mono)
+        unfolding indicator_def apply auto
+        apply(rule ennreal_leI) apply(rule mult_left_mono)
+        subgoal for n x  (* shit, I assumed that ?f is monotonically increasing, 
+                              but it is actually monotonically decreasing! *)
+          apply(rule mult_mono)
+          subgoal by simp
+          subgoal
+            (* because of the exp ( - ... ), we can not show this!
+              TODO: add 1 ?
+             *)
+            using b' apply (auto simp add: power2_eq_square )
+            apply(rule mult_mono)  subgoal   sorry
+            sorry
+          sorry
+        using agt0 bgt0 by simp
+      apply simp_all done
+    also have "\<dots> = \<integral>\<^sup>+x. ennreal (2 * b * a * (indicat_real {real (Suc 0)..} x * ((x + sqrt (ln b)) * exp (- ((x - 1 + sqrt (ln b)))\<^sup>2))))\<partial>lborel" 
+      apply(subst nn_integral_disjoint_family[symmetric, where M=lborel and B="?B" and f="?f"])
+      subgoal apply simp done
+      subgoal apply simp done
+      subgoal apply fact done
+      subgoal unfolding pf apply(rule nn_integral_cong) unfolding indicator_def by simp
+      done 
+    also have "\<dots> = \<integral>\<^sup>+x\<in>{1..}. ennreal (2 * b * a * ( ((x + sqrt (ln b)) * exp (- ((x - 1 + sqrt (ln b)))\<^sup>2))))\<partial>lborel" 
+      apply(rule nn_integral_cong)  unfolding indicator_def by auto
+    finally 
+    show ?thesis . 
+  qed
+    also have "\<dots> = \<integral>\<^sup>+x\<in>{1..}. ennreal ( (2 * b * a) * ((((sqrt (ln b) - 1) + x) + 1) * exp (- (((sqrt (ln b) - 1) + x))\<^sup>2)))\<partial>lborel"
       by(simp add: algebra_simps ) 
-    also have "\<dots> = \<integral>\<^sup>+x\<in>{1..}. ennreal ( (2 * b * a) * ((((sqrt (ln b) - 1) + x) + 1) * exp (- ( ((sqrt (ln b) - 1) + x))\<^sup>2)))\<partial>lborel"
-        using agt0  by(simp add:  power2_eq_square)
     also
     let ?f = "\<lambda>x. ennreal ( (2 * b * a) * ((x + 1) * exp (- ((x  ))\<^sup>2 ))) *  indicator {1..} (x- (sqrt (ln b)-1))"
     have "\<dots> = \<integral>\<^sup>+ x. ?f ((sqrt (ln b) - 1 ) + x) \<partial>lborel" by simp 
