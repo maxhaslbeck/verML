@@ -2,7 +2,34 @@ theory NewTry
 imports LearningTheory
 begin
 
-                  
+
+subsection \<open>Stuff about Pi_pmf\<close>
+
+
+lemma set_pmf_Pi_pmf: "\<And>S i. finite A \<Longrightarrow> S \<in> set_pmf (Pi_pmf A dflt D) \<Longrightarrow> i \<in> A \<Longrightarrow> S i \<in> set_pmf (D i)" 
+  apply(subst set_pmf_iff)
+  apply(subst (asm) set_pmf_iff) 
+  apply(subst (asm) pmf_Pi) apply simp apply auto
+  using prod_zero by metis 
+
+
+lemma set_pmf_Samples: "\<And>S i. S \<in> set_pmf (Samples m D) \<Longrightarrow> i < m \<Longrightarrow> S i \<in> set_pmf D"
+  unfolding Samples_def using set_pmf_Pi_pmf[OF finite_atLeastLessThan] by force 
+
+definition Samples1 :: "nat \<Rightarrow> (real) pmf \<Rightarrow> ((nat \<Rightarrow> real)) pmf" where
+  "Samples1 n D = Pi_pmf {0..<n} (1::real) (\<lambda>_. D)"
+
+lemma Samples1_set_pmf : "finite S \<Longrightarrow> S \<noteq> {} \<Longrightarrow> y \<in> set_pmf (Samples1 m (pmf_of_set S))
+  \<Longrightarrow> (\<forall>i< m. y i \<in> S)"
+  unfolding Samples1_def apply(intro allI impI) subgoal for i
+    apply(drule set_pmf_Pi_pmf[OF finite_atLeastLessThan, where D="\<lambda>_. pmf_of_set S", where i=i])
+    by auto 
+  done
+
+
+
+lemma set_pmf_Pi_pmf2:  "finite S \<Longrightarrow> set_pmf (Pi_pmf S dflt D) \<subseteq> {f. \<forall>s\<in>S. f s \<in> set_pmf (D s)}"
+  using set_pmf_Pi_pmf by fast
 
 lemma expectation_pair_pmf:
     "measure_pmf.expectation (pair_pmf p q) f
@@ -268,14 +295,7 @@ qed
  
 thm integral_Markov_inequality[where c=a and u=f and M=D] measure_pmf.emeasure_eq_measure  integral_real_bounded
 thm ennreal_le_iff
-
-lemma markov_inequality':
-  "
-  integrable (measure_pmf D) f \<Longrightarrow>
-  AE x in measure_pmf D. 0 \<le> f x \<Longrightarrow> a>0 \<Longrightarrow> measure_pmf.prob D {x. f x \<ge> a} \<le> (measure_pmf.expectation D f / a)"
-  using integral_Markov_inequality[where c=a and u=f and M=D, unfolded measure_pmf.emeasure_eq_measure] 
-  apply(subst (asm) ennreal_le_iff)
-    sorry
+ 
 
 
 thm integral_Markov_inequality
@@ -551,6 +571,20 @@ simp: divide_simps; algebra)
   finally show "L h \<le> h\<^sup>2 / 8" by simp
 qed
 
+lemma 
+  assumes 
+   range: "measure_pmf.prob D {x. a \<le> x \<and> x \<le> b} = 1" 
+  shows setofDi: "set_pmf D \<subseteq> {a..b}"
+proof -
+    have "measure_pmf.prob D (space (measure_pmf D) - {x. a \<le> x \<and> x \<le> b}) = 0" 
+      using range  by (subst measure_pmf.prob_compl) (auto)
+    also have "(space (measure_pmf D) - {x. a \<le> x \<and> x \<le> b}) = -{x. a \<le> x \<and> x \<le> b}"
+      by auto
+    finally have "set_pmf D \<inter> -{x. a \<le> x \<and> x \<le> b} = {}"
+      by (subst (asm) measure_pmf_zero_iff) 
+    thus "set_pmf D \<subseteq> {a..b}"
+      by auto
+qed
 
 lemma hoeffdings_lemma:
   fixes a b :: real
@@ -561,8 +595,8 @@ shows  "measure_pmf.expectation D (\<lambda>x. exp (l*x)) \<le> exp ( l^2 *(b-a)
 proof -
   let ?f = "(\<lambda>x. exp (l * x))"
 
-  from range have xbetweenab: "\<And>x. x\<in>set_pmf D \<Longrightarrow> x \<in> {x. a \<le> x \<and> x \<le> b}"
-    sorry
+  from setofDi[OF range] have xbetweenab: "\<And>x. x\<in>set_pmf D \<Longrightarrow> x \<in> {x. a \<le> x \<and> x \<le> b}"
+    unfolding atLeastAtMost_def atLeast_def atMost_def by blast
   from al0 bg0 have ab: "a<b" by auto
 
   (* for integrable side conditions *)
@@ -771,20 +805,6 @@ lemma set_Pi_pmf': "finite A \<Longrightarrow>  f \<in> set_pmf (Pi_pmf A dflt D
   apply (auto simp: set_pmf_eq pmf_Pi)
   by (meson prod_zero) 
 
-lemma 
-  assumes 
-   range: "measure_pmf.prob D {x. a \<le> x \<and> x \<le> b} = 1" 
-  shows setofDi: "set_pmf D \<subseteq> {a..b}"
-proof -
-    have "measure_pmf.prob D (space (measure_pmf D) - {x. a \<le> x \<and> x \<le> b}) = 0" 
-      using range  by (subst measure_pmf.prob_compl) (auto)
-    also have "(space (measure_pmf D) - {x. a \<le> x \<and> x \<le> b}) = -{x. a \<le> x \<and> x \<le> b}"
-      by auto
-    finally have "set_pmf D \<inter> -{x. a \<le> x \<and> x \<le> b} = {}"
-      by (subst (asm) measure_pmf_zero_iff) 
-    thus "set_pmf D \<subseteq> {a..b}"
-      by auto
-qed
 
 lemma hoeffding_ineq:
   assumes
@@ -1355,10 +1375,10 @@ proof -
 qed
 
 
-lemma Lemma_A4:
+lemma nn_Lemma_A4:
   assumes agt0: "a>0" and b: "b\<ge>exp 1"
     and absch: "\<And>t. t>0 \<Longrightarrow> measure_pmf.prob R {x. abs(f x-x')>t}\<le> 2*b*exp(-(t^2)/a^2)"
-  shows "measure_pmf.expectation R (\<lambda>x. abs(f x-x')) \<le> a * (2+ sqrt (ln b))"
+  shows "nn_integral (measure_pmf R) (\<lambda>x. abs(f x-x')) \<le> ennreal (a * (2+ sqrt (ln b)))"
 proof -
   let ?g = "\<lambda>i. a * (i + sqrt ( ln b ))"
  
@@ -1460,13 +1480,7 @@ proof -
     subgoal by simp
     done 
   also have "\<dots> = suminf (\<lambda>i. ennreal ( (2 * b * a) * (indicat_real {Suc 0..} i * ((real i + sqrt (ln b)) * (exp(-((?g (i-1))^2)/a^2))))))"
-    by (auto simp: algebra_simps) (*
-  also have "\<dots> = suminf (\<lambda>i. ( (ennreal (2 * b * a)) * ennreal (indicat_real {Suc 0..} i * ((real i + sqrt (ln b)) * (exp(-((?g (i-1))^2)/a^2))))))"
-    sorry
-  also have "\<dots> = (ennreal (2 * b * a)) * suminf (\<lambda>i. ennreal (indicat_real {Suc 0..} i *  ((real i + sqrt (ln b)) * (exp(-((?g (i-1))^2)/a^2)))))"
-    apply(rule suminf_mult) 
-    subgoal sorry
-    done *)
+    by (auto simp: algebra_simps)
   also have "\<dots> = suminf (\<lambda>i. ennreal ( (2 * b * a) * (indicat_real {Suc 0..} (real i) * ((real i + sqrt (ln b)) * (exp(-((a * (real (i) - 1 + sqrt (ln b)))^2)/a^2))))))"
     apply(rule suminf_cong) unfolding indicator_def 
     by(auto simp: ff) 
@@ -1614,7 +1628,24 @@ proof -
   also have "\<dots> = ennreal (a * (0 + sqrt (ln b))+ 2 * a)"
     apply(subst ennreal_plus[symmetric]) using agt0 b' by auto
   also have "\<dots> \<le> ennreal (a * (2 + sqrt (ln b)))" by (simp add: algebra_simps)
-  finally have ALL: "\<integral>\<^sup>+ x. ennreal \<bar>f x - x'\<bar> \<partial>measure_pmf R \<le> ennreal (a * (2 + sqrt (ln b)))" .
+  finally show ALL: "\<integral>\<^sup>+ x. ennreal \<bar>f x - x'\<bar> \<partial>measure_pmf R \<le> ennreal (a * (2 + sqrt (ln b)))" .
+qed
+
+
+lemma Lemma_A4:
+  assumes agt0: "a>0" and b: "b\<ge>exp 1"
+    and absch: "\<And>t. t>0 \<Longrightarrow> measure_pmf.prob R {x. abs(f x-x')>t}\<le> 2*b*exp(-(t^2)/a^2)"
+  shows "measure_pmf.expectation R (\<lambda>x. abs(f x-x')) \<le> a * (2+ sqrt (ln b))"
+proof -
+
+  have bgt0: "b > 0" using b  
+    using exp_gt_zero less_le_trans by blast  
+
+  have bgt1: "ln b \<ge> 1" using b  
+    by (simp add: bgt0 ln_ge_iff) 
+  then have "ln b > 0"  
+    by (smt ln_gt_zero)
+  then have b': "sqrt (ln b) > 0" by simp 
 
   find_theorems measure_pmf.expectation ennreal 
   term "integral\<^sup>L"
@@ -1622,7 +1653,7 @@ proof -
   show "measure_pmf.expectation R (\<lambda>x. abs(f x-x')) \<le> (a* (2+sqrt(ln b)))"
     apply(rule integral_real_bounded)
     subgoal apply(rule mult_nonneg_nonneg) using agt0 b' by auto
-    subgoal using ALL .
+    subgoal using nn_Lemma_A4[OF assms] .
     done  
 qed
 
@@ -1759,12 +1790,6 @@ lemma nn_hardstep:
   using nn_hardstep' by blast
 
 
-definition Samples1 :: "nat \<Rightarrow> (real) pmf \<Rightarrow> ((nat \<Rightarrow> real)) pmf" where
-  "Samples1 n D = Pi_pmf {0..<n} (1::real) (\<lambda>_. D)"
-
-lemma Samples1_set_pmf : "y \<in> set_pmf (Samples1 m (pmf_of_set {- 1, 1}))
-  \<Longrightarrow> (\<forall>i< m. y i \<in> {-1,1})"
-  sorry
 
 lemma assumes "f \<in> set_pmf (Samples1 m (pmf_of_set {- 1, 1}))"
   shows Samples1_finite:  " finite {i. f i = - 1}"
@@ -1780,12 +1805,6 @@ proof -
   with * finite_subset  show " finite {i. f i = - 1}"  by blast
 qed 
                   
-lemma set_pmf_Pi_pmf2: "set_pmf (Pi_pmf S dflt D) \<subseteq> {f. \<forall>s\<in>S. f s \<in> set_pmf (D s)}"
-  unfolding Pi_pmf_def apply(subst set_embed_pmf)
-  subgoal by (auto simp add: prod_nonneg)  
-  subgoal  sorry
-  subgoal apply auto sorry
-  done
 
 lemma Samples1_set: "f \<in> set_pmf (Samples1 m (pmf_of_set {- 1, 1})) \<Longrightarrow> f i \<in> {- 1, 1}"
   unfolding Samples1_def
@@ -1843,8 +1862,7 @@ lemma fixes f :: "'e \<Rightarrow> 'd \<Rightarrow> real"
   by (metis (no_types, lifting) Max_in finite_imageI imageE image_is_empty mem_Collect_eq)  
 
 
-lemma set_pmf_Samples: "\<And>S i. S \<in> set_pmf (Samples m D) \<Longrightarrow> i < m \<Longrightarrow> S i \<in> set_pmf D"
-  sorry
+
 
 lemma convex_abs: "convex_on UNIV abs" unfolding convex_on_def apply auto   
         subgoal for a b c d apply(cases "a\<ge>0"; cases "b\<ge>0"; cases "c * a + d * b\<ge>0") apply auto
@@ -1989,15 +2007,15 @@ proof -
                \<Squnion>h\<in>H. \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0)  
                        -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0))) {0..<m})  \<bar>  / m )"
     have "
-        measure_pmf.expectation (Samples1 m (pmf_of_set {-1,1::real}))
+        nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
-               \<Squnion>h\<in>H. \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0)  
-                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0))) {0..<m})  \<bar>  / m )
-        \<le> measure_pmf.expectation (Samples1 m (pmf_of_set {-1,1::real}))
+               \<Squnion>h\<in>H. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0)  
+                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0))) {0..<m})  \<bar>  / m ))
+        \<le> nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
-               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
-                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m ))" 
-      (is "_ \<le> measure_pmf.expectation _ (\<lambda>\<sigma>. Max (?A \<sigma>))")
+               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
+                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m )))" 
+      (is "_ \<le> nn_integral _ (\<lambda>\<sigma>. Max (?A \<sigma>))")
     proof -
       {
         fix \<sigma> and h :: "'a \<Rightarrow> 'b"
@@ -2025,11 +2043,7 @@ proof -
 
 
       show ?thesis 
-        apply(rule expectation_mono)
-        subgoal unfolding Samples1_def apply(rule measure_pmf.integrable_const_bound[where B=1])
-          apply auto
-          sorry
-        subgoal unfolding Samples1_def apply auto sorry
+        apply(rule nn_integral_mono) 
         subgoal for \<sigma>
       apply(rule ord_le_eq_trans[OF _ cSup_eq_Max])
       subgoal 
@@ -2132,10 +2146,10 @@ proof -
 
   thm Lemma_A4
 
-  have "measure_pmf.expectation (Samples1 m (pmf_of_set {-1,1::real}))
+  have "nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
-               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
-                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m )) 
+               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
+                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m ))) 
         \<le> ?bnd * \<delta>" 
   proof -
     have ff: "\<And>x::real. x-0 = x" by simp
@@ -2143,8 +2157,19 @@ proof -
     have pap: "\<And>(f::_\<Rightarrow>real) A. finite A \<Longrightarrow>  A\<noteq>{} \<Longrightarrow> \<bar>MAXIMUM A (\<lambda>i. \<bar>f i\<bar>)\<bar> = MAXIMUM A (\<lambda>i. \<bar>f i\<bar>)"
       apply(rule abs_of_nonneg)
       apply(subst Max_ge_iff) by auto 
-       
-    from Lemma_A4[where x'=0 and b="card (restrictH H_map ?C Y)" and a="1/sqrt(m/2)"
+    thm nn_integral_Sup_le
+
+    have pap': "\<And>(f::_\<Rightarrow>real) A. finite A \<Longrightarrow>  A\<noteq>{} \<Longrightarrow> ennreal \<bar>MAXIMUM A (\<lambda>i. \<bar>f i\<bar>)\<bar> = MAXIMUM A (\<lambda>i. ennreal \<bar>f i\<bar>)"       
+      apply(subst abs_of_nonneg) 
+      subgoal apply(subst Max_ge_iff) by auto   
+      subgoal apply(subst mono_Max_commute) subgoal    by(auto intro: monoI ennreal_leI)
+      subgoal apply simp done
+      subgoal apply simp done
+      subgoal  by (auto simp: image_image)  
+      done
+    done
+
+    from nn_Lemma_A4[where x'=0 and b="card (restrictH H_map ?C Y)" and a="1/sqrt(m/2)"
                                             and f="\<lambda>\<sigma>. MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>?bla \<sigma> h\<bar> )"  ]
     have therule: "\<And>R. 0 < 1 / sqrt (real m / 2) \<Longrightarrow>
 exp 1 \<le> real (card (restrictH H_map ?C Y)) \<Longrightarrow>
@@ -2155,31 +2180,32 @@ exp 1 \<le> real (card (restrictH H_map ?C Y)) \<Longrightarrow>
                 0\<bar>}
       \<le> 2 * real (card (restrictH H_map ({fst (S i) |i. i \<in> {0..<m}} \<union> {fst (S' i) |i. i \<in> {0..<m}}) Y)) *
          exp (- t\<^sup>2 / (1 / sqrt (real m / 2))\<^sup>2)) \<Longrightarrow>
-measure_pmf.expectation R
- (\<lambda>x. \<bar>(MAX h\<in>restrictH H_map ({fst (S i) |i. i \<in> {0..<m}} \<union> {fst (S' i) |i. i \<in> {0..<m}}) Y.
+nn_integral (measure_pmf R)
+ (\<lambda>x. ennreal \<bar>(MAX h\<in>restrictH H_map ({fst (S i) |i. i \<in> {0..<m}} \<union> {fst (S' i) |i. i \<in> {0..<m}}) Y.
            \<bar>(\<Sum>i = 0..<m.
                 x i *
                 ((case S' i of (x, y) \<Rightarrow> if h x \<noteq> Some y then 1 else 0) - (case S i of (x, y) \<Rightarrow> if h x \<noteq> Some y then 1 else 0))) /
             real m\<bar>)\<bar>)
 \<le> 1 / sqrt (real m / 2) *
    (2 + sqrt (ln (real (card (restrictH H_map ?C Y)))))" unfolding ff
-      by blast
+         by blast  
 
     have i: " (1 / sqrt (real m / 2))\<^sup>2 = 1 / (m/2)" using m_gt0 
       by (simp add: power_divide)  
 
-    have "measure_pmf.expectation (Samples1 m (pmf_of_set {-1,1::real}))
+
+    have "nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
-               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
-                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m ))
-         = measure_pmf.expectation (Samples1 m (pmf_of_set {-1,1::real}))
+               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
+                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m )))
+         = nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
-               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>?bla \<sigma> h\<bar> ))"
+               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. ennreal \<bar>?bla \<sigma> h\<bar> ))"
       by simp 
-    also have "\<dots> = measure_pmf.expectation (Samples1 m (pmf_of_set {-1,1::real}))
-         (\<lambda>\<sigma>.
-               \<bar>MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>?bla \<sigma> h\<bar> )\<bar>)"
-      apply(subst pap)
+    also have "\<dots> \<le> nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
+         (\<lambda>\<sigma>. ennreal 
+               \<bar>MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>?bla \<sigma> h\<bar> )\<bar>)" 
+      apply(subst pap')
       subgoal using finite_restrC by simp
       subgoal using restrictH_nonempty by simp
       by simp
@@ -2199,6 +2225,7 @@ measure_pmf.expectation R
       done 
     also    
     have "\<dots> \<le> 1 / sqrt (real m / 2) * (2 + sqrt (ln (real (growth (2 * m)))))"
+      apply(rule ennreal_leI)
       apply(rule mult_left_mono)
       subgoal apply simp apply(subst ln_le_cancel_iff)
         subgoal  apply simp sorry
@@ -2207,27 +2234,20 @@ measure_pmf.expectation R
       subgoal using m_gt0 by simp
       done
     also have "\<dots> \<le> ?bnd * \<delta>"
-      using delta_nn m_gt0 apply auto 
+      using delta_nn m_gt0 apply auto
+      apply(rule ennreal_leI)
       apply(rule divide_right_mono) by auto 
     finally show ?thesis .
   qed
   finally 
   have " 
-        measure_pmf.expectation (Samples1 m (pmf_of_set {-1,1::real}))
-         (\<lambda>\<sigma>.
-               \<Squnion>h\<in>H. \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0)  
-                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0))) {0..<m})  \<bar>  / m )
-          \<le> ?bnd * \<delta>" .
-} note fff = this
-
-  { fix S S'
-  have " 
         nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
                \<Squnion>h\<in>H. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0)  
-                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0))) {0..<m})  \<bar>  / m) )
-          \<le> ?bnd * \<delta>" sorry
-  } note fff' = this
+                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0))) {0..<m})  \<bar>  / m ))
+          \<le> ?bnd * \<delta>" .
+} note fff' = this
+ 
 
 
   have "\<And>P M. (\<forall>x. x\<in>set_pmf M \<longrightarrow> P x) \<Longrightarrow> almost_everywhere (measure_pmf M) P"
@@ -2420,8 +2440,8 @@ measure_pmf.expectation R
            nn_integral (Samples m D)
            (\<lambda>S.  nn_integral (Samples m D)
          (\<lambda>S'. ?bnd * \<delta>))"
-      apply(rule nn_integral_mono)  
-      apply(rule nn_integral_mono)  
+      apply(rule nn_integral_mono_AE, rule AE_pmfI)  
+      apply(rule nn_integral_mono_AE, rule AE_pmfI)   
       by(rule fff') 
     also have "\<dots> =   ?bnd * \<delta>"
       apply(subst nn_integral_const)
@@ -2445,8 +2465,25 @@ measure_pmf.expectation R
   have "measure_pmf.prob (Samples m D) {S. Sup (?err S ` H) > ?bnd }       
          \<le> measure_pmf.expectation (Samples m D) (\<lambda>S. Sup (?err S ` H)) / ?bnd"
     apply (rule markov_inequality)  
-    sorry
-
+    subgoal apply(rule measure_pmf.integrable_const_bound[where B=2])
+      subgoal apply(rule AE_pmfI) apply simp
+        apply(subst abs_of_nonneg)
+          subgoal apply(rule nervig1)
+            subgoal by(auto intro!: bdd_aboveI2 Error_bounded[OF m_gt0]) 
+            subgoal using nnH by simp
+            subgoal by simp
+            done
+          subgoal apply(rule nervig2) 
+            subgoal by(auto intro!: bdd_aboveI2 Error_bounded[OF m_gt0]) 
+            subgoal using nnH by simp
+            subgoal by (auto simp: Error_bounded[OF m_gt0])
+            done
+          done
+        subgoal by simp
+        done
+      subgoal using nnH by(auto intro!: bdd_aboveI2 AE_pmfI nervig1 Error_bounded[OF m_gt0])   
+      subgoal using bnd_gt0 .
+      done
   also have "\<dots> \<le> (?bnd * \<delta>) / ?bnd "
     apply (rule divide_right_mono)
     using bd_exp bnd_gt0 by auto 
@@ -2473,5 +2510,7 @@ qed
 
   
    
+
+end
 
 end
