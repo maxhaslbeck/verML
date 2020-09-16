@@ -175,13 +175,13 @@ definition ridge_mine :: "(nat \<Rightarrow> ('b * 'c)) \<Rightarrow> real \<Rig
 
 text \<open>swap two values of a function. This will be useful when we show 
 what is the difference in ridge regression for small changes in the dataset\<close>
-definition swapped_S :: "(nat \<Rightarrow> ('b * 'c)) \<Rightarrow> nat \<Rightarrow> nat  \<Rightarrow> (nat \<Rightarrow> ('b * 'c))" where
-  "swapped_S S' i m =  S'(i:= S' m, m:= S' i) "  
+definition swapped_fun :: "(nat \<Rightarrow> ('b * 'c)) \<Rightarrow> nat \<Rightarrow> nat  \<Rightarrow> (nat \<Rightarrow> ('b * 'c))" where
+  "swapped_fun S' i m =  S'(i:= S' m, m:= S' i) "  
 
 text \<open>Make the result for some value undefined. This will be useful, when
 we make connection between dataset with with and without one element.\<close>
-definition truncated_S :: "(nat \<Rightarrow> ('b * 'c))  \<Rightarrow> nat \<Rightarrow>(nat \<Rightarrow> ('b * 'c))" where
-  "truncated_S S' m =  S'(m := undefined) "
+definition trunc_fun :: "(nat \<Rightarrow> ('b * 'c))  \<Rightarrow> nat \<Rightarrow>(nat \<Rightarrow> ('b * 'c))" where
+  "trunc_fun S' m =  S'(m := undefined) "
 
 text\<open>S_index is a set where the i-th data point in S is replaced with an arbitrary one
 definition S_index :: "(nat \<Rightarrow> ('b \<times> 'c)) \<Rightarrow> nat \<Rightarrow> ('b \<times> 'c) \<Rightarrow> (nat \<Rightarrow> ('b * 'c))" where
@@ -204,13 +204,13 @@ lemma set_pmf_Pi_pmf: "\<And>S i. finite A \<Longrightarrow> S \<in> set_pmf (Pi
 
 
 lemma element_of_sample_in_dataset: 
-  assumes "\<And> S. S \<in> (Samples m D)"
+  assumes " S \<in> (Samples m D)"
   shows " \<And>i. i \<in> {0..<m} \<Longrightarrow> S i \<in>  D" 
   using  set_pmf_Pi_pmf assms
   by (metis Samples_def finite_atLeastLessThan)
 
 lemma train_err_loss_convex: 
-  assumes "\<And> S. S \<in> (Samples n D)"
+  assumes " S \<in> (Samples n D)"
   shows "convex_on H (train_err_loss S n l)"
   using train_err_loss_convex_if_loss_convex convll
     element_of_sample_in_dataset assms by blast
@@ -218,10 +218,9 @@ lemma train_err_loss_convex:
 text\<open>Shows that ridge regression with regularization constant k
 is 2*k-strongly convex\<close>
 lemma ridge_strong_convex:
-  assumes "\<And>S. S \<in> (Samples n D)"
+  assumes " S \<in> (Samples n D)"
   shows "strong_convex_on H (ridge_fun S k) (2*k)"
 proof -
-  fix S
   have "strong_convex_on H (\<lambda> w. k * (norm w)*(norm w)) (2*k)"
     using sq_norm_strong_convex 
     by blast
@@ -238,7 +237,7 @@ proof -
 qed
 
 lemma ridge_convex:
-  assumes "\<And>S. S \<in> (Samples n D)" 
+  assumes " S \<in> (Samples n D)" 
   shows "convex_on H (ridge_fun S k)"
   using  ridge_strong_convex k_pos convex_on_if_strong_convex_on assms
   by smt
@@ -250,10 +249,9 @@ lemma convex_has_min:
   sorry
 
 lemma ridge_min_el_is_argmin: 
-  assumes "\<And>S. S \<in> (Samples n D)"
+  assumes " S \<in> (Samples n D)"
   shows " (ridge_mine S k) \<in> (ridge_argmin S k)"
 proof -
-  fix S
   have "\<exists>h. is_arg_min (ridge_fun S k) (\<lambda>s. s \<in> H) h" using 
       ridge_convex k_pos convex_has_min nnH convH assms by auto
   then have "ridge_argmin S k \<noteq> {}" 
@@ -268,9 +266,42 @@ qed
 
 
 lemma fun_upd_swap_same_if_truncated: 
-  "truncated_S (S (i:= (S n))) n =  truncated_S (swapped_S S i n) n"
-  unfolding truncated_S_def  unfolding swapped_S_def
+  "trunc_fun (S (i:= (S n))) n =  trunc_fun (swapped_fun S i n) n"
+  unfolding trunc_fun_def  unfolding swapped_fun_def
   by auto
+
+
+lemma fun_upd_is_samples: 
+  fixes S :: "(nat \<Rightarrow> ('b \<times> 'c))"
+  assumes S_in_D: "S \<in> Samples n D"
+  assumes z_in_D: "z \<in> D"
+  assumes i_in_I: "i\<in>{0..<n}"
+  shows " (S (i:= z)) \<in> Samples n D"
+proof -
+  let ?S_i = "(S (i:= z))"
+  let ?I = "{0..<n}"
+  have "finite ?I" by auto
+  have "pmf D z > 0" 
+    using `z\<in>D`
+    by (simp add: pmf_positive)
+  have "pmf (Samples n D) S > 0"
+    using S_in_D pmf_pos
+    by (simp add: pmf_positive)
+  then have " \<forall>j. j \<notin> ?I \<longrightarrow> S j = undefined"
+    using  n_pos 
+    by (metis S_in_D Samples_def finite_atLeastLessThan pmf_Pi_outside pmf_eq_0_set_pmf)
+  then have "\<forall>j. j \<notin> ?I \<longrightarrow> ?S_i j = undefined"
+    using i_in_I by auto
+  then have 1:"pmf (Samples n D) ?S_i = (\<Prod>x\<in>?I. pmf D (?S_i x))"
+    unfolding Samples_def 
+    using  pmf_Pi' `finite ?I` 
+    by (metis (mono_tags, lifting) prod.cong)
+  have "(\<Prod>x\<in>?I. pmf D (?S_i x)) > 0"  
+    by (smt Probability_Mass_Function.pmf_pos S_in_D  \<open>0 < pmf D z\<close>
+        fun_upd_other fun_upd_same prod_pos element_of_sample_in_dataset set_pmf_iff)
+  then show ?thesis using 1 
+    using set_pmf_iff by force
+qed
 
 end
 
