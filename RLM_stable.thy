@@ -9,7 +9,7 @@ paragraph \<open>Summary\<close>
 text \<open>In this theorem we prove that regularized learning minimization is stable.
 This means that small changes in the dataset won't change the result much.
 Later we consider the loss function l to be lipschitz and integrable. We then prove 
-The oracle inequality as shown in corollary 13.8 in UN.\<close>
+The oracle inequality as shown in corollary 13.8 in @{cite UnderstandingML}.\<close>
 
 paragraph \<open>Main Theorems\<close>
 text \<open>
@@ -479,6 +479,7 @@ proof -
     by (auto intro: AE_pmfI )   
 qed
 
+
 lemma  samples_small_update_bounded:
   assumes i_in_I: "i\<in>{0..<n}"
   assumes  "S\<in> (Samples (n+1) D)"
@@ -768,10 +769,7 @@ proof -
       using k_pos by auto
     then show ?thesis using pred_expect_0 by auto
   qed
-qed
-
-
-
+  qed
 
 end
 end

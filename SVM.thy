@@ -41,7 +41,6 @@ locale learning_with_hinge_loss =
     and n_pos: "n>0"
     and k_pos : "k>0"
     and rho_pos: "\<rho> > 0"
-    and S_in_D: "S \<in> Samples n D" 
     and D_bounded : "\<forall>z \<in> D. norm (fst z) \<le> \<rho>"
     and y_abs : "\<forall>z\<in> D. abs (snd z) = 1"
 begin
@@ -128,7 +127,7 @@ definition soft_svm_mine :: "(nat \<Rightarrow> ('b \<times> real)) \<Rightarrow
   "soft_svm_mine S' = (SOME h. h \<in> soft_svm_argmin S' )"
 
 text \<open>The loss for a data point i is exactly (ksi i) --> the distance to 
-the boundary. We follow the informal proof from UN in Section 15 Soft SVM.\<close>
+the boundary. We follow the informal proof from @{cite UnderstandingML} in Section 15 Soft SVM.\<close>
 lemma ksi_are_margins :
   assumes "s \<in> H"
   assumes "(s,ksi) \<in> soft_svm_argmin S"
@@ -278,11 +277,12 @@ text \<open>
 Claim 15.5
 Here we prove that the Support vector machine minimization problem
 can be expressed as Ridge regression, i.e. it is a reguralized loss minimization
-problem. We follow the informal proof from UN.
+problem. We follow the informal proof from @{cite UnderstandingML}.
 We show that a hypothesis h is an argmin of the ridge function iff 
 h is argmin to the svm subject to the constraints. 
 After that the proof is trivial.\<close>
 lemma soft_svm_is_RLM:
+assumes S_in_D: "S \<in> Samples n D"
   shows "ridge_fun S k (ridge_mine S k) =  soft_svm (soft_svm_mine S)"
 proof -
   let ?P = "(\<lambda> x . fst x\<in>H \<and> (\<forall>i\<in>{0..<n}. snd (S i) * (inner (fst x) (fst (S i))) \<ge>
@@ -312,6 +312,7 @@ proof -
 qed
 
 lemma soft_svm_is_RLM1:
+assumes S_in_D: "S \<in> Samples n D"
   assumes "v \<in> soft_svm_argmin S"
   assumes "u \<in> ridge_argmin S k"
   shows "ridge_fun S k u =  soft_svm v"
@@ -339,7 +340,7 @@ proof -
     unfolding soft_svm_mine_def
     unfolding soft_svm_argmin_def by simp
   have "(soft_svm_mine S) \<in> soft_svm_argmin S" unfolding soft_svm_mine_def
-    by (metis assms(1) verit_sko_ex')
+    by (metis assms(2) verit_sko_ex')
   then have 21: "soft_svm (soft_svm_mine S) \<le> soft_svm v" unfolding soft_svm_argmin_def using assms
     by (metis (mono_tags, lifting) is_arg_min_linorder mem_Collect_eq soft_svm_argmin_def)
   have "soft_svm (soft_svm_mine S) \<ge> soft_svm v" unfolding soft_svm_argmin_def using assms
@@ -350,6 +351,7 @@ proof -
 qed
 
 lemma ridge_fun_with_svm_min:
+  assumes S_in_D: "S \<in> Samples n D"
   assumes "v \<in> soft_svm_argmin S"
   assumes "u \<in> ridge_argmin S k"
   shows "ridge_fun S k u = ridge_fun S k (fst v)"
@@ -381,75 +383,83 @@ proof -
   then have "is_arg_min (ridge_fun S k) (\<lambda>s. s \<in> H) (fst v)" unfolding soft_svm_argmin_def 
     by (simp add: ridge_argmin_def)
   then show ?thesis using assms 
-    using \<open>fst (fst v, \<lambda>i. hinge_loss (fst v) (S i)) \<in> ridge_argmin S k\<close> soft_svm_is_RLM1 by auto
+  using \<open>fst (fst v, \<lambda>i. hinge_loss (fst v) (S i)) \<in> ridge_argmin S k\<close> 
+      soft_svm_is_RLM1 assms by auto
 qed
   
-lemma integrable_ridge_min:
- "integrable (Samples n D) (\<lambda> S. (ridge_mine S k))"
+
+text \<open>The training error is integrable.\<close>
+lemma train_err_svm_integrable:
+  shows " integrable (Samples n D) (\<lambda> S. train_err_loss S n hinge_loss (fst (soft_svm_mine S)))"
 proof -
-  let ?f = "(\<lambda> S. (ridge_mine S k))"
+  from nnH obtain h where "h\<in>H" by blast 
+  let ?f = " (\<lambda> i S. hinge_loss (fst (soft_svm_mine S)) (S i))"
+  let ?g = "(\<lambda> S  z. hinge_loss (fst (soft_svm_mine S)) z)"
   let ?M = "(Samples n D)"
-  have "\<forall> S \<in> Samples n D. (ridge_mine S k) \<in> H"
-    using argmin_in_hypotheis_set by blast
-  then have "\<forall> S \<in> Samples n D. norm (ridge_mine S k)  \<le> \<rho>" using D_bounded  
-    by (metis S_in_D all_not_in_conv atLeastLessThan_empty_iff element_of_sample_in_dataset fun_upd_apply k_pos n_pos norm_le_zero_iff not_less_iff_gr_or_eq real_norm_def snd_eqD y_abs)
-  then have 1:" AE x in measure_pmf ?M. norm (?f x) \<le> \<rho>" 
-    using AE_measure_pmf_iff by blast
-  then have " measure_pmf.random_variable ?M borel ?f" by auto
-  then show ?thesis using Probability_Mass_Function.measure_pmf.integrable_const_bound 1 by auto
-qed
+  have nn: "\<And>S. S\<in>set_pmf ?M \<Longrightarrow> \<forall>i\<in>{0..<n}. 0 \<le> ?f i S "
+    using l_nn element_of_sample_in_dataset argmin_in_hypotheis_set 
+    using hinge_loss_pos by blast
 
-lemma sq_norm_ridge_min_integrable:  "integrable (Samples n D) (\<lambda> S. k * norm (ridge_mine S k)^2)"
-proof 
-  have "k \<noteq> 0" using k_pos by auto
-  show "integrable (Samples n D) (\<lambda>x. (norm (ridge_mine x k))\<^sup>2)"
-  proof -
-    have "integrable (Samples n D) (\<lambda>x. (norm (ridge_mine x k)))" using integrable_ridge_min
+  {
+    fix S
+    assume S: "S\<in>Samples n D"
+    let ?w = "(fst (soft_svm_mine S))"
+    have *: "train_err_loss S n hinge_loss (fst (soft_svm_mine S))
+                 \<le> train_err_loss S n hinge_loss h +  k * norm ( h )^2" 
+    proof -
+      have " train_err_loss S n hinge_loss ?w \<le> train_err_loss S n hinge_loss h + k * norm ( h )^2"
+      proof -
+        have "is_arg_min (ridge_fun S k) (\<lambda>s. s\<in>H) (ridge_mine S k)"
+          unfolding ridge_mine_def unfolding ridge_argmin_def 
+          by (metis S mem_Collect_eq ridge_argmin_def ridge_min_el_is_argmin verit_sko_ex_indirect)
+        then have "(ridge_mine S k) \<in> ridge_argmin S k" unfolding ridge_argmin_def by auto
+        have "ridge_fun S k ?w = ridge_fun S k (ridge_mine S k)" using ridge_fun_with_svm_min
+        using \<open>ridge_mine S k \<in> ridge_argmin S k\<close> learning_with_hinge_loss.argmin_svm_is_argmin_ridge
+            learning_with_hinge_loss_axioms soft_svm_mine_def 
+            by (metis S someI_ex)
+ 
+        then have "(ridge_fun S k)  ((fst (soft_svm_mine S))) \<le> (ridge_fun S k) h" 
+          using `h\<in>H` 
+          by (metis \<open>is_arg_min (ridge_fun S k) (\<lambda>s. s \<in> H) (ridge_mine S k)\<close> is_arg_min_linorder)
+
+        then have "train_err_loss S n hinge_loss ?w  + k* norm(?w)^2
+                   \<le> train_err_loss S n hinge_loss h + k * norm ( h )^2"
+          unfolding ridge_fun.simps by auto
+        then show "train_err_loss S n hinge_loss ?w 
+                  \<le> train_err_loss S n hinge_loss h + k * norm ( h )^2" using k_pos
+          by (smt mult_nonneg_nonneg zero_le_power2)
+      qed
+      then show "train_err_loss S n hinge_loss ?w \<le>
+                                train_err_loss S n hinge_loss h +  k * norm ( h )^2"
+        by blast
+    qed
+    have " train_err_loss S n hinge_loss ?w \<ge> 0" 
+      by (simp add: train_err_loss_nn nn S)
+    then have  "(train_err_loss S n hinge_loss ?w) =
+          (norm (train_err_loss S n hinge_loss ?w))" 
       by simp
- let ?f = "(\<lambda> S. (ridge_mine S k))"
-     let ?M = "(Samples n D)"
- have "\<forall> S \<in> Samples n D. (ridge_mine S k) \<in> H"
-    using argmin_in_hypotheis_set by blast
-  then have "\<forall> S \<in> Samples n D. norm (ridge_mine S k)  \<le> \<rho>" using D_bounded  
-    by (metis S_in_D all_not_in_conv atLeastLessThan_empty_iff element_of_sample_in_dataset fun_upd_apply k_pos n_pos norm_le_zero_iff not_less_iff_gr_or_eq real_norm_def snd_eqD y_abs)
-  then have 1:" AE x in measure_pmf ?M. norm (?f x) \<le> \<rho>" 
-    using AE_measure_pmf_iff by blast
-  then have " AE x in measure_pmf ?M. norm (?f x)*norm (?f x) \<le> \<rho>*\<rho>" 
-    by (smt AE_measure_pmf_iff mult_mono norm_ge_zero)
-  then have 2:"AE x in measure_pmf ?M. norm (?f x)^2 \<le> \<rho>^2" 
-    by (simp add: power2_eq_square)
-  have " measure_pmf.random_variable ?M borel (\<lambda> S. norm (ridge_mine S k)^2)" by auto
-  then show ?thesis 
-    using 2 Probability_Mass_Function.measure_pmf.integrable_const_bound[of"(\<lambda> S. norm (ridge_mine S k)^2)" "\<rho>^2" ?M]
-    
-    by (simp add: \<open>AE x in measure_pmf (Samples n D). (norm (ridge_mine x k))\<^sup>2 \<le> \<rho>\<^sup>2\<close>)
-qed
+    then have 12:" (norm (train_err_loss S n hinge_loss ?w))
+      \<le> norm (train_err_loss S n hinge_loss h + k * (norm h)\<^sup>2)" 
+      using * by auto
+  } note bounded = this
+  then have integrable_ridge_fun:"integrable ?M (\<lambda> S.  train_err_loss S n hinge_loss h + k * norm ( h )^2)" 
+    apply(intro Bochner_Integration.integrable_add) 
+    subgoal by(rule train_err_integrable_fixed_hypotheis[OF `h\<in>H`])
+    subgoal by auto
+    done
+  show "integrable (Samples n D) (\<lambda> S. train_err_loss S n hinge_loss (fst (soft_svm_mine S)))" 
+    apply(rule Bochner_Integration.integrable_bound)
+      apply(rule integrable_ridge_fun)
+    using bounded
+    by (auto intro: AE_pmfI )   
 qed
 
-lemma sq_norm_svm_min_integrable:  "integrable (Samples n D) (\<lambda> S. k * norm (fst (soft_svm_mine S))^2)"
-proof 
-  have "k \<noteq> 0" using k_pos by auto
-  show "integrable (Samples n D) (\<lambda>x. (norm (fst (soft_svm_mine x)))\<^sup>2)"
-  proof -
 
- let ?f = "(\<lambda> S. (fst (soft_svm_mine S)))"
-     let ?M = "(Samples n D)"
- have "\<forall> S \<in> Samples n D. (fst (soft_svm_mine S)) \<in> H" 
-   by (metis (mono_tags, lifting) argmin_svm_is_argmin_ridge is_arg_min_def mem_Collect_eq ridge_min_el_is_argmin soft_svm_argmin_def soft_svm_mine_def someI_ex)
-   
-  then have "\<forall> S \<in> Samples n D. norm (fst (soft_svm_mine S))  \<le> \<rho>" using D_bounded  
-    by (metis S_in_D all_not_in_conv atLeastLessThan_empty_iff element_of_sample_in_dataset fun_upd_apply k_pos n_pos norm_le_zero_iff not_less_iff_gr_or_eq real_norm_def snd_eqD y_abs)
-  then have 1:" AE x in measure_pmf ?M. norm (?f x) \<le> \<rho>" 
-    using AE_measure_pmf_iff by blast
-  then have 3:" AE x in measure_pmf ?M. norm (?f x)*norm (?f x) \<le> \<rho>*\<rho>" 
-    by (smt AE_measure_pmf_iff mult_mono norm_ge_zero)
-  then have 2:"AE x in measure_pmf ?M. norm (?f x)^2 \<le> \<rho>^2" 
-    by (simp add: power2_eq_square)
-  have " measure_pmf.random_variable ?M borel (\<lambda> S. norm (fst (soft_svm_mine S))^2)" by auto
-  then show ?thesis 
-    using 2 Probability_Mass_Function.measure_pmf.integrable_const_bound[of"(\<lambda> S. norm (fst (soft_svm_mine S))^2)" "\<rho>^2" ?M]
-    by (simp add: 3)
-qed
-qed
+text \<open>Claim 15.7\<close>
+lemma 
+  assumes "h\<in>H"
+  shows "measure_pmf.expectation (Samples n D) (\<lambda> S.  pred_err_loss D hinge_loss (fst (soft_svm_mine S))) \<le>
+    pred_err_loss D hinge_loss h  + k * norm ( h )^2  + (2*\<rho>^2)/(k*n)" 
+    oops
 
 end

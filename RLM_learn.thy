@@ -28,7 +28,7 @@ convex function
 section \<open>Basic definitions\<close>
 
 text \<open>Definition of Prediction and Training error using a loss function. It was used the 
-definition from UN
+definition from @{cite UnderstandingML}
 \<^item> \<open>pred_err_loss \<close>Given the whole set D of possible values  what is the expectation of the 
   loss for a given hypothesis h
 \<^item> \<open>train_err_loss\<close> Given a finite dataset S what is the expected loss for a 

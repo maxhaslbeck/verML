@@ -8,7 +8,7 @@ begin
 paragraph \<open>Summary\<close>
 text \<open>In this theory we prove major theorem about the expectation 
 of the difference of between prediction and error loss of the minimezer
-of the regularization loss function. The informal proof can be found in UN
+of the regularization loss function. The informal proof can be found in @{cite UnderstandingML}
 as Theorem 13.2. 
 There are also general lemmas about expectations over a sample dataset.
  \<close>
