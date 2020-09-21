@@ -341,10 +341,26 @@ proof -
   finally show ?thesis .
 qed
 
- 
+thm Pi_pmf_component 
+
+definition TrainErr2 :: " ('d \<Rightarrow> ('e * 'f)) \<Rightarrow> 'd set \<Rightarrow> ('e \<Rightarrow> 'f) \<Rightarrow> real" where
+  "TrainErr2 S I h = sum (indicator {i. case (S i) of (x,y) \<Rightarrow>   h x \<noteq> y}) I "
 
 lemma PredErr_as_expectation:
   "PredErr D h = measure_pmf.expectation (Samples m D) (\<lambda>S. TrainErr S {0..<m} h )"
+  unfolding TrainErr_def Samples_def                            
+proof -
+  thm sum_indicator_eq_card 
+    
+  term TrainErr
+  let ?B = "\<lambda>S. {i. case S i of (x, y) \<Rightarrow> h x \<noteq> y}" 
+  have "measure_pmf.expectation (Samples m D) (\<lambda>S. TrainErr2 S {0..<m} h )
+      = measure_pmf.expectation (Samples m D) (\<lambda>S. sum ((indicator (?B S))::_\<Rightarrow>real) {0..<m})"
+    unfolding   TrainErr2_def by simp
+  also have "\<dots> =  G"
+    apply(subst sum_indicator_eq_card )
+
+qed
   unfolding PredErr_def unfolding TrainErr_def sorry 
 
 
@@ -430,7 +446,7 @@ proof -
   qed
 qed
 
-
+thm pair_sigma_finite.integrable_fst
 (* idea to compress integrability of two expectations into one:
     pair_sigma_finite.integrable_fst *)
 
@@ -442,16 +458,59 @@ thm pair_sigma_finite.Fubini_integrable
 
 lemma "measure_pmf (pair_pmf M M2)
     = pair_measure (measure_pmf M) (measure_pmf M2)"
+  unfolding  pair_measure_def
+  unfolding pair_pmf_def
+  
+
+    
      sorry
+
+lemma (in product_sigma_finite) product_nn_integral_insert_rev:
+  assumes I[simp]: "finite I" "i \<notin> I"
+    and [measurable]: "f \<in> borel_measurable (Pi\<^sub>M (insert i I) M)"
+  shows "integral\<^sup>N (Pi\<^sub>M (insert i I) M) f = (\<integral>\<^sup>+ y. (\<integral>\<^sup>+ x. f (x(i := y)) \<partial>(Pi\<^sub>M I M)) \<partial>(M i))"
+  apply (subst product_nn_integral_insert[OF assms])
+  apply (rule pair_sigma_finite.Fubini')
+  apply intro_locales []
+  apply (rule sigma_finite[OF I(1)])
+  apply measurable
+  done
+
 
 
 lemma nn_integral_linear': 
+ (* assumes "(\<lambda>p. f (snd p) (fst p)) \<in> borel_measurable (measure_pmf M2 \<Otimes>\<^sub>M measure_pmf M)" *)
   shows 
-  "nn_integral M (\<lambda>S. nn_integral M2 (f S))
-        = nn_integral M2 (\<lambda>S2. nn_integral M (\<lambda>S. f S S2))"
+  "nn_integral (measure_pmf M) (\<lambda>S. nn_integral (measure_pmf M2) (\<lambda>S'.  (f S S')))
+        = nn_integral (measure_pmf M2) (\<lambda>S2. nn_integral (measure_pmf M) (\<lambda>S.   (f S S2)))"
+proof -
    (* fubini *)
-  sorry
 
+  
+  thm pair_sigma_finite.Fubini_integral
+  find_theorems name: Fubini
+  thm lborel_pair.Fubini lborel_pair.Fubini'
+  thm pair_sigma_finite.Fubini'
+
+  have *: "\<And>M M'. measure_pmf (pair_pmf M M') = pair_measure (measure_pmf M) (measure_pmf M')"
+    sorry
+
+  show ?thesis 
+    apply(rule pair_sigma_finite.Fubini')
+    subgoal
+      by (simp add: measure_pmf.sigma_finite_measure_axioms pair_sigma_finite_def) (* apply intro_locales [] *)
+    subgoal  
+      apply(rule borel_measurableI)
+      unfolding *[symmetric]
+      by simp
+(*
+      apply(simp add: split_def) by fact (*
+      apply(measurable) 
+      apply(subst pair_measure_countable) apply auto
+      unfolding borel_def unfolding  measurable_def apply auto   
+      sorry *) *)
+    done 
+qed
 
 term prob_space
 lemma expectation_linear':
@@ -1601,9 +1660,9 @@ proof -
   term "integral\<^sup>L"
 
       find_theorems "_ has_derivative _" exp
-      find_theorems "_ has_derivative _" "( * )"
-      find_theorems "_ has_field_derivative _" "( * )"
-      find_theorems "_ has_real_derivative _" "( * )"
+      find_theorems "_ has_derivative _" "(*)"
+      find_theorems "_ has_field_derivative _" "(*)"
+      find_theorems "_ has_real_derivative _" "(*)"
 
   (* letzter schritt in der abschätzung *)
   thm nn_integral_FTC_atLeast
@@ -1657,14 +1716,17 @@ proof -
     done  
 qed
 
-lemma PP': " nn_integral p (\<lambda>x. nn_integral p (\<lambda>y. f x y))
+lemma PP': " nn_integral (measure_pmf p) (\<lambda>x. nn_integral p (\<lambda>y. f x y))
     = nn_integral p (\<lambda>x. nn_integral p (\<lambda>y. f y x))"
   using nn_integral_linear' by auto
 
-lemma PP: "(\<And>x y. f y x = g y x) \<Longrightarrow> nn_integral p (\<lambda>x. nn_integral p (\<lambda>y. f x y))
+lemma PP: "(\<And>x y. f y x = g y x) \<Longrightarrow> nn_integral (measure_pmf p) (\<lambda>x. nn_integral p (\<lambda>y. f x y))
     = nn_integral p (\<lambda>x. nn_integral p (\<lambda>y. g y x))"
   apply(subst PP') by simp
 
+
+thm Pi_pmf_union nn_integral_pair_pmf' Pi_pmf_bij_betw
+ 
 
 lemma nn_hardstep'': 
   fixes f :: "(nat \<Rightarrow> real) \<Rightarrow> ennreal"
@@ -1700,8 +1762,15 @@ next
     apply(subst B(1)) 
     apply(subst Pi_pmf_insert[OF B(2,3)])
     apply(subst nn_integral_map_pmf)
-    apply(subst nn_integral_pair_pmf')
-    apply(subst nn_integral_linear')
+    apply(subst nn_integral_pair_pmf') (*
+    apply(subst nn_integral_linear') *)
+    apply(subst  pair_sigma_finite.Fubini')
+    subgoal 
+      by (simp add: measure_pmf.sigma_finite_measure_axioms pair_sigma_finite_def)
+       
+    subgoal
+      apply (measurable)
+      sorry
 
     apply(subst (2)B(1)) 
     apply(subst Pi_pmf_insert[OF B(2,3)])
@@ -1856,7 +1925,7 @@ lemma restrict_mapify_same: "\<And>x. (x\<in>C \<Longrightarrow> (mapify h |` C)
 
 lemma fixes f :: "'e \<Rightarrow> 'd \<Rightarrow> real"
   shows braa: "\<And>\<rho>. finite S \<Longrightarrow> S \<noteq>{} \<Longrightarrow>
-      {\<sigma>. MAXIMUM S (\<lambda>h. f \<sigma> h) > \<rho> } \<subseteq> \<Union> { {\<sigma>. f \<sigma> h > \<rho>}   |h. h\<in>S }" 
+      {\<sigma>. Max ( (\<lambda>h. f \<sigma> h) ` S) > \<rho> } \<subseteq> \<Union> { {\<sigma>. f \<sigma> h > \<rho>}   |h. h\<in>S }" 
   apply rule  
   apply simp   
   by (metis (no_types, lifting) Max_in finite_imageI imageE image_is_empty mem_Collect_eq)  
@@ -2013,8 +2082,8 @@ proof -
                        -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0))) {0..<m})  \<bar>  / m ))
         \<le> nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
-               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
-                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m )))" 
+               Max ( (\<lambda>h. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
+                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m )) `(restrictH H_map ?C Y) ) )" 
       (is "_ \<le> nn_integral _ (\<lambda>\<sigma>. Max (?A \<sigma>))")
     proof -
       {
@@ -2114,7 +2183,7 @@ proof -
     } note gaga = this
  
 
-    have argh: "\<And>\<rho>. {\<sigma>. MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>?bla \<sigma> h\<bar>) > \<rho> }
+    have argh: "\<And>\<rho>. {\<sigma>. Max ( (\<lambda>h. \<bar>?bla \<sigma> h\<bar>) ` (restrictH H_map ?C Y)) > \<rho> }
                   \<subseteq> (\<Union>h\<in>(restrictH H_map ?C Y).  {\<sigma>. \<bar>?bla \<sigma> h\<bar> > \<rho>} )"
       subgoal for \<rho>
         using braa[OF finite_restrC restrictH_nonempty, of \<rho> "\<lambda>\<sigma> h. \<bar>?bla \<sigma> h\<bar>"] by blast
@@ -2124,7 +2193,7 @@ proof -
 
       {fix \<rho> :: real
         assume rhogt0: "\<rho>>0" 
-        have "measure_pmf.prob (Samples1 m (pmf_of_set {-1,1::real})) {\<sigma>. MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>?bla \<sigma> h\<bar>) > \<rho> }
+        have "measure_pmf.prob (Samples1 m (pmf_of_set {-1,1::real})) {\<sigma>. Max ( (\<lambda>h. \<bar>?bla \<sigma> h\<bar>) ` (restrictH H_map ?C Y)) > \<rho> }
           \<le> measure_pmf.prob (Samples1 m (pmf_of_set {-1,1::real})) (\<Union>h\<in>(restrictH H_map ?C Y).  {\<sigma>. \<bar>?bla \<sigma> h\<bar> > \<rho>} )"
           apply(rule subsetlesspmf) by(rule argh)
         also have "\<dots> \<le> (\<Sum>h\<in>restrictH H_map ?C Y.
@@ -2139,7 +2208,7 @@ proof -
           apply(subst sum_constant_scale) by simp
         finally
     (* using union_bound *)
-    have " measure_pmf.prob (Samples1 m (pmf_of_set {-1,1::real})) {\<sigma>. MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>?bla \<sigma> h\<bar>) > \<rho> }
+    have " measure_pmf.prob (Samples1 m (pmf_of_set {-1,1::real})) {\<sigma>. Max ( (\<lambda>h. \<bar>?bla \<sigma> h\<bar>) ` (restrictH H_map ?C Y)) > \<rho> }
                     \<le> 2 * card (restrictH H_map ?C Y) * exp (-  m  * \<rho>^2 / 2)" .
   } note ppp = this
 
@@ -2148,29 +2217,30 @@ proof -
 
   have "nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
-               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
-                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m ))) 
+               Max ( (\<lambda>h. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
+                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m )) ` (restrictH H_map ?C Y)) ) 
         \<le> ?bnd * \<delta>" 
   proof -
     have ff: "\<And>x::real. x-0 = x" by simp
 
-    have pap: "\<And>(f::_\<Rightarrow>real) A. finite A \<Longrightarrow>  A\<noteq>{} \<Longrightarrow> \<bar>MAXIMUM A (\<lambda>i. \<bar>f i\<bar>)\<bar> = MAXIMUM A (\<lambda>i. \<bar>f i\<bar>)"
+    have pap: "\<And>(f::_\<Rightarrow>real) A. finite A \<Longrightarrow>  A\<noteq>{} \<Longrightarrow> \<bar>Max( (\<lambda>i. \<bar>f i\<bar>) `  A)\<bar> = Max ( (\<lambda>i. \<bar>f i\<bar>) ` A)"
       apply(rule abs_of_nonneg)
       apply(subst Max_ge_iff) by auto 
     thm nn_integral_Sup_le
 
-    have pap': "\<And>(f::_\<Rightarrow>real) A. finite A \<Longrightarrow>  A\<noteq>{} \<Longrightarrow> ennreal \<bar>MAXIMUM A (\<lambda>i. \<bar>f i\<bar>)\<bar> = MAXIMUM A (\<lambda>i. ennreal \<bar>f i\<bar>)"       
+    have pap': "\<And>(f::_\<Rightarrow>real) A. finite A \<Longrightarrow>  A\<noteq>{} \<Longrightarrow> ennreal \<bar>Max ((\<lambda>i. \<bar>f i\<bar>)`A )\<bar> = Max ((\<lambda>i. ennreal \<bar>f i\<bar>)` A)"       
       apply(subst abs_of_nonneg) 
       subgoal apply(subst Max_ge_iff) by auto   
-      subgoal apply(subst mono_Max_commute) subgoal    by(auto intro: monoI ennreal_leI)
-      subgoal apply simp done
-      subgoal apply simp done
-      subgoal  by (auto simp: image_image)  
+      subgoal apply(subst mono_Max_commute)
+        subgoal    by(auto intro: monoI ennreal_leI)
+        subgoal apply simp done
+        subgoal apply simp done
+        subgoal  by (auto simp: image_image)  
+        done
       done
-    done
 
     from nn_Lemma_A4[where x'=0 and b="card (restrictH H_map ?C Y)" and a="1/sqrt(m/2)"
-                                            and f="\<lambda>\<sigma>. MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>?bla \<sigma> h\<bar> )"  ]
+                                            and f="\<lambda>\<sigma>. Max ( (\<lambda>h. \<bar>?bla \<sigma> h\<bar> ) ` (restrictH H_map ?C Y))"  ]
     have therule: "\<And>R. 0 < 1 / sqrt (real m / 2) \<Longrightarrow>
 exp 1 \<le> real (card (restrictH H_map ?C Y)) \<Longrightarrow>
 (\<And>t. 0 < t \<Longrightarrow>
@@ -2196,15 +2266,15 @@ nn_integral (measure_pmf R)
 
     have "nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
-               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
-                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m )))
+               Max ((\<lambda>h. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0)  
+                       -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> Some y then 1::real else 0))) {0..<m})  \<bar>  / m ))` (restrictH H_map ?C Y)))
          = nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>.
-               MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. ennreal \<bar>?bla \<sigma> h\<bar> ))"
+               Max ((\<lambda>h. ennreal \<bar>?bla \<sigma> h\<bar> )` (restrictH H_map ?C Y) ))"
       by simp 
     also have "\<dots> \<le> nn_integral (Samples1 m (pmf_of_set {-1,1::real}))
          (\<lambda>\<sigma>. ennreal 
-               \<bar>MAXIMUM (restrictH H_map ?C Y) (\<lambda>h. \<bar>?bla \<sigma> h\<bar> )\<bar>)" 
+               \<bar>Max( (\<lambda>h. \<bar>?bla \<sigma> h\<bar> )` (restrictH H_map ?C Y))\<bar>)" 
       apply(subst pap')
       subgoal using finite_restrC by simp
       subgoal using restrictH_nonempty by simp
@@ -2315,7 +2385,7 @@ nn_integral (measure_pmf R)
     } note * = this
 
     show ?thesis
-      unfolding * .. 
+      unfolding * sorry 
   qed
   also have "\<dots> \<le> nn_integral (Samples m D)
            (\<lambda>S. \<Squnion>h\<in>H. ennreal (measure_pmf.expectation (Samples m D)
@@ -2425,7 +2495,12 @@ nn_integral (measure_pmf R)
       term "indicator {h x} y"
       thm indicator_def
       apply -  
-      apply(subst  nn_integral_linear')
+      apply(subst pair_sigma_finite.Fubini')
+      subgoal
+        by (simp add: measure_pmf.sigma_finite_measure_axioms pair_sigma_finite_def) (* apply intro_locales [] *)
+      subgoal unfolding Samples1_def
+         
+        sorry
         (* some missing side conditions here ! *)
       by simp
     also have "\<dots> = 
@@ -2435,7 +2510,8 @@ nn_integral (measure_pmf R)
          (\<lambda>\<sigma>.
                \<Squnion>h\<in>H. ennreal ( \<bar>(sum (\<lambda>i. \<sigma> i * ( (case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0)  
                        -  (case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0))) {0..<m})  \<bar>  / m ) )))"  
-      apply(subst (2) nn_integral_linear') .. 
+      apply(subst (2) nn_integral_linear')  
+       .. 
     also have "\<dots> \<le> 
            nn_integral (Samples m D)
            (\<lambda>S.  nn_integral (Samples m D)
