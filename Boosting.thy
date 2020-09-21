@@ -1,55 +1,44 @@
+\<^marker>\<open>creator Eric Koepke\<close>
+
 theory Boosting
   imports Complex_Main LinearPredictor VCDim
 begin
 
 
-text {* Abstract
-These theories are a result of my work for the Specification and Verification Practical course
+paragraph \<open>Summary\<close>
+text \<open>These theories are a result of my work for the Specification and Verification Practical course
 in WS19. They mostly formalize theorems from the book "Understanding Machine Learning" by 
-Shai Shalev-Shwartz and Shai Ben-David, published 2014. The main method analyzed is Boosting
-(concretely AdaBoost) and upper bounds for both Training and Validation Errors are proven based
+Shai Shalev-Shwartz and Shai Ben-David, published 2014 @{cite UnderstandingML}.
+
+The main method analyzed is Boosting (concretely AdaBoost) and upper bounds for both
+Training and Validation Errors are proven based
 on assumptions about the quality of the underlying weak learner (e.g. decision stumps). Claims about
 the Validation Error or Prediction Error require a quantification of the model complexity in the
 form of the VC-Dimension. As a result most of the work revolves around binding the VC-Dimension of
 Boosting and deducing strong statements from that measure. The auxiliary concepts explored in this
 work are the VC-Dimension, Uniform Convergence, PAC-Learnability, Linear Predictors and Decision Stumps.
 In the context of Linear Predictors in Isabelle, a specific implementation of standard vectors is
-given as well.*}
+given as well.\<close>
 
 
 
-text {*File Overview: Chapters | Definitions, Lemmas, Theorems
+text \<open>File Overview: Chapters | Definitions, Lemmas, Theorems
 LearningTheory:       2,3,4      Equations 3.1, 2.2 (Errors), Definitions 3.1, 4.1, 4.3, Lemma 4.2
 FiniteHypClasses:     2          Corollary 2.3/3.2 (equivalent)
-VCDim:                4          Definitions 6.2 6.3 6.5 6.9, Lemma 6.10 (Sauer's), Theorem 6.7
+VCDim:                6          Definitions 6.2 6.3 6.5 6.9, Lemma 6.10 (Sauer's), Theorem 6.7
                                  (The Fundamental Theorem of Statistical Learning), 6.11 (sorry'd)
 LinearPredictor:      9          Theorem 9.2
-Boosting:             10         Theorem 10.2, Lemma 10.3
-*}
+Boosting:             10         Theorem 10.2, Lemma 10.3\<close>
 
-text {*Test:
-@{thm mapify_alt} @{term learning_basics.uniform_convergence}}
- *}
-
-text {* Other files:
-RpowD: In this file a vector type is defined, that is used for the linear predictor. The main goal
-       of defining this type was making the vector size independent of the type, but this is not
-       absolutely necessary and the type could be replaced by something more standard. Note, that
-       it contains a pseudo scalar/inner product (minner) that is defined without instantiating
-       metric or normed space.
-DecisionStump: This document contains an attempt at providing an upper bound for the error of
-               decision stumps. Since there is no non-trivial (better than 0.5) upper bound without
-               assumptions, I tried to specify the conditions necessary for such a bound. I proof
-               that the condition I came up with is sufficient for the bound provided but it turns
-               out, it is not a necessary condition for a bound <0.5 and as such not optimal.
-               However, such a bound would not be very powerful so this side-project was stopped.
+text \<open>Other theories:
+DecisionStump: Side project attempting to provide an upper bound for the error of
+               decision stumps.
 Theorem611: This document contains a collection of (mostly failed) attempts at gathering subproofs
             and important lemmata for theorem 6.11. It may help proving the theorem in the future
             and serves no other purpose.
-Pi_pmf: This was imported by Max Haslbeck to define iid samples and otherwise left untouched by me.
-*}
+\<close>
 
-text{* General comments
+text \<open>General comments
 Big parts of LearningTheory and FiniteHypClasses are by Max Haslbeck and only slightly adapted.
 In chapter 2 of the book, the ground truth gets introduced in terms of a labeling function. This
 assumption gets loosened in chapter 3 by including the label of a data point in the data generating
@@ -72,9 +61,16 @@ the error that can be expected when using the model to predict on new data from 
 distribution. In the book and in this work this error will therefore be referred to as prediction
 error. We can derive bounds for this error that do not require an actual validation set using
 learning theory.
- *}
+ \<close>
 
-text {* Main results and interpretation
+paragraph \<open>Main Theorems\<close>
+text \<open>Main results and interpretation:
+\<^item> \<open>main102\<close>: The Training Error of the output hypothesis of AdaBoost decreases exponentially fast
+    with the number of boosting rounds (Theorem 10.2 in @{cite UnderstandingML})
+\<^item> \<open>VCBoosting\<close>: An upper bound on the VC dimension of AdaBoost (Lemma 10.3  in @{cite UnderstandingML})
+\<^item> \<open>boosting_bound_prediction_error\<close>: proves a bound on the prediction error of Boosting that does
+        not rely on the realizability assumption.
+
 The main result of this work is the last lemma in Boosting as it effectively presents a bound on
 the prediction error of Boosting that does not rely on the realizability assumption. It combines
 Theorem 10.2, Lemma 10.3 and bounds from VCDim. There is one strong assumption though and that
@@ -82,7 +78,7 @@ is the assumed error of the weak learner/base class (0.5-\<gamma>). The quality 
 Theorem 10.2 is highly dependent on the quality of the weak learner in terms of a high \<gamma>. Therefore
 the other part, which bounds the difference between Training and Prediction error, could be
 considered stronger, as it does not require such strong assumptions.
- *}
+ \<close>
 
 
 
@@ -1191,7 +1187,8 @@ qed
 
 
 
-lemma fixes m :: nat
+lemma boosting_bound_prediction_error:
+  fixes m :: nat
       and \<delta> :: real
   assumes "set_pmf D \<subseteq> (X\<times>{True, False})"
       and "\<delta>\<in>{x.0<x\<and>x<1}" "0<m" "baseclass.VCDim = Some d" "1 < d"

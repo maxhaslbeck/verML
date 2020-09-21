@@ -1,8 +1,30 @@
+\<^marker>\<open>creator "Maximilian P. L. Haslbeck"\<close>
+\<^marker>\<open>contributor "Eric Koepke"\<close>
+
 theory LearningTheory
   imports Complex_Main Pi_pmf
 begin
 
-section auxiliaries
+paragraph \<open>Summary\<close>
+text \<open>In this theory we define hinge loss and proove some lemmas 
+that show it can be used as loss function for lipschitz convex learning\<close>
+
+paragraph \<open>Main definitions\<close>
+text \<open>
+\<^item> \<open>PredErr\<close> : Prediction Error
+\<^item> \<open>TrainErr\<close> : Training Error
+\<^item> \<open>PAC_learnable\<close> : PAC-Learnability Error (Definition 3.1 in @{cite UnderstandingML})
+\<^item> \<open>representative\<close> : \<epsilon>-representative sample (Definition 4.1 in @{cite UnderstandingML})
+\<^item> \<open>uniform_convergence\<close> : Uniform Convergence (Definition 4.3 in @{cite UnderstandingML})
+\<close>
+
+paragraph \<open>Main Theorems\<close>
+text \<open>
+\<^item> \<open>PAC_learnable_if_uniform_convergence\<close>: (Lemma 4.3  in @{cite UnderstandingML})
+\<close>
+
+
+section \<open>Auxiliaries\<close>
 
 lemma set_Pi_pmf: "finite A \<Longrightarrow>  f \<in> set_pmf (Pi_pmf A dflt (%_. D)) \<Longrightarrow> i\<in>A \<Longrightarrow> f i \<in> set_pmf D"
   apply (auto simp: set_pmf_eq pmf_Pi)
@@ -11,15 +33,15 @@ lemma set_Pi_pmf: "finite A \<Longrightarrow>  f \<in> set_pmf (Pi_pmf A dflt (%
 lemma subsetlesspmf: "A\<subseteq>B \<Longrightarrow> measure_pmf.prob Q A \<le> measure_pmf.prob Q B"
   using measure_pmf.finite_measure_mono by fastforce
 
-section "Error Definitions"
-text {* Error terms:
+section \<open>Error Definitions\<close>
+text \<open> Error terms:
 In machine learning, typically two different errors are measured when training a model. The training
 error is the error achieved by the model on the data used for training while the validation error
 is measured on a seperate data set that is retrieved from the same source. This is done to approximate
 the error that can be expected when using the model to predict on new data from the same source
 distribution. In the book and in this work this error will therefore be referred to as prediction
 error. We can derive bounds for this error that do not require an actual validation set using
-learning theory. *}
+learning theory. \<close>
 
 text \<open>Definition of the Prediction Error (3.1). 
     This is the Isabelle way to write: 
@@ -312,7 +334,8 @@ qed
 
 
 (* lemma 4.2*)
-lemma assumes "uniform_convergence"
+lemma PAC_learnable_if_uniform_convergence:
+  assumes "uniform_convergence"
   shows "PAC_learnable (ERMe)" 
 proof -
   obtain M where f1: "(\<forall>D. set_pmf D \<subseteq> (X\<times>Y) \<longrightarrow> (\<forall>m. \<forall> \<epsilon> > 0. \<forall>\<delta>\<in>{x.0<x\<and>x<1}. m \<ge> M \<epsilon> \<delta> \<longrightarrow> 

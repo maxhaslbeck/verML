@@ -1,6 +1,13 @@
+\<^marker>\<open>creator Maximilian P. L. Haslbeck\<close>
+
 theory NewTry
 imports LearningTheory
 begin
+
+
+paragraph \<open>Summary\<close>
+text \<open>Work in Progress!
+  This theory attempts to prove Theorem 6.11. from @{cite UnderstandingML}.\<close>
 
 
 subsection \<open>Stuff about Pi_pmf\<close>
@@ -348,19 +355,6 @@ definition TrainErr2 :: " ('d \<Rightarrow> ('e * 'f)) \<Rightarrow> 'd set \<Ri
 
 lemma PredErr_as_expectation:
   "PredErr D h = measure_pmf.expectation (Samples m D) (\<lambda>S. TrainErr S {0..<m} h )"
-  unfolding TrainErr_def Samples_def                            
-proof -
-  thm sum_indicator_eq_card 
-    
-  term TrainErr
-  let ?B = "\<lambda>S. {i. case S i of (x, y) \<Rightarrow> h x \<noteq> y}" 
-  have "measure_pmf.expectation (Samples m D) (\<lambda>S. TrainErr2 S {0..<m} h )
-      = measure_pmf.expectation (Samples m D) (\<lambda>S. sum ((indicator (?B S))::_\<Rightarrow>real) {0..<m})"
-    unfolding   TrainErr2_def by simp
-  also have "\<dots> =  G"
-    apply(subst sum_indicator_eq_card )
-
-qed
   unfolding PredErr_def unfolding TrainErr_def sorry 
 
 
@@ -2361,7 +2355,7 @@ nn_integral (measure_pmf R)
       \<le> nn_integral (Samples m D) (\<lambda>S.  (\<Squnion>h\<in>H. ennreal \<bar>PredErr D h - TrainErr S {0..<m} h\<bar>))"
     apply(rule nn_integral_mono) apply(rule order.trans)
      apply(rule ennreal_Sup') using nnH apply simp 
-    by simp
+     sorry
   also have "\<dots> = nn_integral (Samples m D)
            (\<lambda>S. \<Squnion>h\<in>H. ennreal \<bar>measure_pmf.expectation (Samples m D) (\<lambda>S'.  TrainErr S' {0..<m} h )
                - TrainErr S {0..<m} h\<bar>)" apply(subst PredErr_as_expectation[where m=m]) ..
@@ -2438,12 +2432,7 @@ nn_integral (measure_pmf R)
     also have "\<dots> = nn_integral (Samples m D)
            (\<lambda>S.  nn_integral (Samples m D)
          (\<lambda>S'. \<Squnion>h\<in>H. ennreal \<bar>(sum (\<lambda>i. case (S' i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0) {0..<m}  
-                       - sum (\<lambda>i. case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0) {0..<m}) / m  \<bar> ) )"
-      apply(rule nn_integral_cong)
-      apply(rule nn_integral_cong)
-      apply(rule arg_cong[where f="SUPREMUM H"]) apply(rule ext)
-      apply(rule ennreal_cong)
-      apply(rule arg_cong[where f="abs"]) 
+                       - sum (\<lambda>i. case (S i) of (x,y) \<Rightarrow> if h x \<noteq> y then 1::real else 0) {0..<m}) / m  \<bar> ) )" 
       using m_gt0  
       by (simp add: diff_divide_distrib) 
     also have "\<dots> = nn_integral (Samples m D)

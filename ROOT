@@ -1,11 +1,19 @@
 session Verified_Machine_Learning = "HOL-Probability" +
-  options [browser_info]
-  
-  theories (* by Ralitsa Dardjonova *)
-    "SVM"
 
-(*  theories (* by Eric Koepke *)
-    "Boosting" *)
+options [browser_info, quick_and_dirty]
 
-  document_files
-    "root.bib"
+theories
+  "LearningTheory"
+
+theories (* by Maximilian P. L. Haslbeck *)
+  "FiniteHypClasses"
+
+theories (* by Eric Koepke *)
+  "Boosting"
+
+theories (* by Ralitsa Dardjonova *)
+  "Subgradients"
+  "SVM"
+
+document_files
+  "root.bib"

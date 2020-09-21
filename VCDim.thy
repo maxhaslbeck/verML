@@ -1,13 +1,43 @@
+\<^marker>\<open>creator Eric Koepke\<close>
+
 theory VCDim
   imports Complex_Main LearningTheory RpowD
 begin
 
 
+paragraph \<open>Summary\<close>
+text \<open>This theory proves "The Fundamental Theorem of Statistical Learning"
+        and coresponds to chapter 6 of @{cite UnderstandingML}.\<close>
+
+paragraph \<open>Main Definitions\<close>
+text \<open>
+\<^item> \<open>restrictH\<close>: Restricting Hypotheses to concentrated set (Def 6.2. of @{cite UnderstandingML})
+\<^item> \<open>shatters\<close>: Shattering (Def 6.3. of @{cite UnderstandingML})
+\<^item> \<open>VCDim\<close>: VC dimension (Def 6.5. of @{cite UnderstandingML})
+\<^item> \<open>growth\<close>: Growth function (Def 6.9. of @{cite UnderstandingML})
+\<close>
+
+
+paragraph \<open>Main Theorems\<close>
+text \<open>
+\<^item> \<open>lem610\<close>: Sauer's Lemma (Lemma 6.10. of @{cite UnderstandingML}).
+\<^item> \<open>theorem611\<close>: if H has small effective size, then it enjoys the uniform convergence
+              property (Theorem 6.11 of @{cite UnderstandingML}).
+\<^item> \<open>uni_conv\<close>: The Fundamental Theorem of Statistical Learning, i.e. if H has a finite VC dimension
+        it has the uniform convergence property.
+\<close>
+
+
 section "Combinatorics over maps"
 
 definition "mapify f = (\<lambda>x. Some (f x))"
+
 definition "allmaps C D = {m. dom m = C \<and> ran m \<subseteq> D}"  
+
+text \<open>Restriction of H to C (Definition 6.2 in @{cite UnderstandingML})\<close>
 definition "restrictH H C D = {m\<in>(allmaps C D). \<exists>h\<in>H. m \<subseteq>\<^sub>m h}"
+
+text \<open>Shattering (Definition 6.3 in @{cite UnderstandingML})\<close>
 definition "shatters H C D \<longleftrightarrow> allmaps C D = restrictH H C D"
 
 lemma mapify_alt: "mapify f = Some \<circ> f" unfolding mapify_def by auto
@@ -243,9 +273,9 @@ lemma assumes "VCDim = Some m"
    and noshatter: "\<not>(\<exists>C\<subseteq>X. card C > m \<and> shatters H_map C Y)"
 proof -
   have s1: "m = Max {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}" using VCDim_def assms
-    by (metis (mono_tags, lifting) Collect_cong option.discI option.inject)
+    by (metis (mono_tags, lifting) option.discI option.inject)
   moreover have s2: "finite {m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y}" using VCDim_def assms
-    by (metis (mono_tags, lifting) Collect_cong option.simps(3))
+    by (metis (mono_tags, lifting) option.simps(3))
    moreover have "{m. \<exists>C\<subseteq>X. card C = m \<and> shatters H_map C Y} \<noteq> {}"
     using empty_shatted nnHmap
     by (metis (mono_tags, lifting) empty_iff empty_subsetI mem_Collect_eq subset_refl)
@@ -335,7 +365,7 @@ lemma restrictH_Hempty[simp]: "\<And>D C. restrictH {} C D = {}"
   by(auto simp: restrictH_def)
  
 
-(*Equation 6.3*)
+text \<open>Equation 6.3\<close>
 lemma eq63: "finite C \<Longrightarrow> H'\<subseteq>H_map \<Longrightarrow> card (restrictH H' C Y) \<le> card ({B. B\<subseteq>C \<and> shatters H' B Y})"
 proof (induct arbitrary: H' rule: finite_induct )
   case empty
@@ -650,7 +680,7 @@ proof -
     by (meson le_trans subsetI) 
 qed
 
-(*Sauers Lemma 6.10*)
+text \<open>Sauers Lemma 6.10\<close>
 lemma assumes "VCDim = Some d"
       and "m>0"
   shows lem610: "growth m \<le> sum (\<lambda>x. m choose x) {0..d}" 
@@ -697,13 +727,14 @@ proof -
 qed
 
 
-(*Theorem 6.11*)
+section \<open>Theorem 6.11\<close>
 lemma assumes "set_pmf D \<subseteq> (X\<times>Y)"
       and "\<delta>\<in>{x.0<x\<and>x<1}"
     shows theorem611: "measure_pmf.prob (Samples m D) {S. \<forall>h\<in>H. abs(PredErr D h - TrainErr S {0..<m} h)
                    \<le> (4+sqrt(ln(real(growth (2*m)))))/(\<delta> * sqrt(2*m))} \<ge> 1 - \<delta>"
   sorry
 
+section \<open>The Fundamental Theorem of Statistical Learning\<close>
 
 
 lemma ceil_gr: "y \<ge> ceiling x \<Longrightarrow> real y \<ge> x"

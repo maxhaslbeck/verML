@@ -1,6 +1,23 @@
+\<^marker>\<open>creator Eric Koepke\<close>
+
 theory LinearPredictor
   imports VCDim
 begin
+
+paragraph \<open>Summary\<close>
+text \<open>This theory proves "The Fundamental Theorem of Statistical Learning"
+        and coresponds to chapter 6 of @{cite UnderstandingML}.\<close>
+
+paragraph \<open>Main Definitions\<close>
+text \<open>
+\<^item> \<open>linear_predictor\<close>: Linear Predictor
+\<close>
+
+paragraph \<open>Main Theorems\<close>
+text \<open>
+\<^item> \<open>linvcd\<close>: The VC dimension of the class of homogenous halfspaces in \<open>R^d\<close> is \<open>d\<close> 
+              (Lemma 9.2. of @{cite UnderstandingML}).
+\<close>
 
 
 definition "linear_predictor w = (\<lambda>x. minner w x > 0)"

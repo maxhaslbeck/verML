@@ -1,3 +1,5 @@
+\<^marker>\<open>creator Ralitsa Dardjonova\<close>
+
 theory Subgradients
   imports hinge_loss
 begin
@@ -22,7 +24,7 @@ lemma convex_has_subgradient:
   assumes " open A"
   assumes "convex A"
   shows "convex_on A f \<longleftrightarrow> (\<forall> w \<in> A. \<exists> v \<in> A. \<forall> u \<in> A. f (u) \<ge> f(w) + (inner (u-w) v)) "
-  sorry
+  oops
 
 
 

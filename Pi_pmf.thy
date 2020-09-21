@@ -1,7 +1,9 @@
+\<^marker>\<open>creator Manuel Eberl\<close>
+
 theory Pi_pmf
   imports "HOL-Probability.Probability"
 begin
-(* By Manuel Eberl *)
+
 definition Pi_pmf :: "'a set \<Rightarrow> 'b \<Rightarrow> ('a \<Rightarrow> 'b pmf) \<Rightarrow> ('a \<Rightarrow> 'b) pmf" where
   "Pi_pmf A dflt p =
      embed_pmf (\<lambda>f. if (\<forall>x. x \<notin> A \<longrightarrow> f x = dflt) then \<Prod>x\<in>A. pmf (p x) (f x) else 0)"

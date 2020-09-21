@@ -1,15 +1,18 @@
+\<^marker>\<open>creator Eric Koepke\<close>
+
 theory DecisionStump
 imports
   Complex_Main
   "HOL-Data_Structures.Cmp"
 begin
 
-text "This document contains an attempt at providing an upper bound for the error of decision stumps.
+paragraph \<open>Summary\<close>
+text \<open>This theory contains an attempt at providing an upper bound for the error of decision stumps.
       Since there is no non-trivial (better than 0.5) upper bound without assumptions, 
-      I tried to specify the conditions necessary for such a bound. I proof that the condition
+      I tried to specify the conditions necessary for such a bound. I prove that the condition
       I came up with is sufficient for the bound provided but it turns out, it is not a necessary
       condition for a bound <0.5 and as such not optimal. However, such a bound would not be very
-      powerful so this side-project was stopped."
+      powerful so this side-project was stopped.\<close>
 
 locale Stump =
   fixes X :: "'a set"
@@ -180,7 +183,7 @@ proof(rule ccontr)
     by auto
   have s2: "(x3, d3, False) \<in> allsplits" using allsplits_def s1(1,2) by auto
   have s3: "bdd_below (image err allsplits)" using allsplits_def finitex by auto
-  from a1 have "1/2 - 1 / 2^(card X + 1) < (INF i:allsplits. err i)" by auto
+  from a1 have "1/2 - 1 / 2^(card X + 1) < (INF i\<in>allsplits. err i)" by auto
   from s2 s3 this have s20: "err (x3, d3, False) > 1/2 - 1 / 2^(card X + 1)" 
     using Conditionally_Complete_Lattices.conditionally_complete_lattice_class.less_cINF_D
         [of err allsplits "1/2 - 1 / 2^(card X + 1)" "(x3, d3, False)"] by auto
@@ -309,7 +312,7 @@ proof(rule ccontr)
                       (sum D {x\<in>X. y x = ?s \<and> comp x3 x d3 = LT})" using s5 by auto
   ultimately have s24: "err (x3,d3,True) < 1/2 - 1/(2^(card X +1))" by linarith
   have s23: "(x3, d3, True) \<in> allsplits" using allsplits_def s1(1,2) by auto
-  from a1 have "1/2 - 1 / 2^(card X + 1) < (INF i:allsplits. err i)" by auto
+  from a1 have "1/2 - 1 / 2^(card X + 1) < (INF i\<in>allsplits. err i)" by auto
   from s23 s3 this have s20: "err (x3, d3, True) > 1/2 - 1 / 2^(card X + 1)" 
     using Conditionally_Complete_Lattices.conditionally_complete_lattice_class.less_cINF_D
         [of err allsplits "1/2 - 1 / 2^(card X + 1)" "(x3, d3, True)"] by auto

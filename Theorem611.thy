@@ -1,3 +1,5 @@
+\<^marker>\<open>creator Eric Koepke\<close>
+
 theory Theorem611
   imports Complex_Main LearningTheory
 begin

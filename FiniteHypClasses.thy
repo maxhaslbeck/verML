@@ -1,6 +1,20 @@
+\<^marker>\<open>creator Maximilian P. L. Haslbeck\<close>
+
 theory FiniteHypClasses
   imports "HOL-Probability.Probability" Pi_pmf LearningTheory
 begin
+
+
+paragraph \<open>Summary\<close>
+text \<open>This theory proves that finite hypothesis classes are PAC learnable. This formalizes the
+proof of corollary 2.3/corollary 3.2 of @{cite UnderstandingML}.\<close>
+
+
+paragraph \<open>Main Theorems\<close>
+text \<open>
+\<^item> \<open>finiteHypothesisClass.corollary_2_3\<close>: every finite Hypothesis class is PAC learnable.
+\<close>
+
 
 section "auxiliary lemmas"
 
@@ -18,7 +32,8 @@ proof -
   then have "( h / \<delta>) \<le> exp (real m * \<epsilon>)" using dd nn
     by (metis (full_types) divide_pos_pos exp_le_cancel_iff exp_ln of_nat_0_less_iff)
   then have "h \<le> \<delta> * exp (real m * \<epsilon>)" using dd
-    by (smt divide_divide_eq_left exp_gt_zero less_divide_eq_1_pos linordered_field_class.sign_simps(44))
+    using  divide_divide_eq_left exp_gt_zero less_divide_eq_1_pos
+    by (simp add: mult.commute pos_divide_le_eq)
   then have A: "h / exp (real m * \<epsilon>) \<le> \<delta>"
     by (smt dd(1) divide_divide_eq_left exp_gt_zero less_divide_eq_1_pos mult.commute mult_pos_pos) 
   have B: "h / exp (real m * \<epsilon>) = h * exp (-\<epsilon> * m)"
@@ -255,6 +270,7 @@ qed
 
 definition "ERMbound \<epsilon> \<delta> = nat \<lceil> (ln ( real (card H) / \<delta>)) / \<epsilon>\<rceil>"
 
+text \<open>Corollary 2.3 and 3.2\<close>
 lemma corollary_2_3: "PAC_learnable ERMe"
   unfolding PAC_learnable_def
   apply(rule exI[where x="ERMbound"])

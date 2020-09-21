@@ -1,20 +1,26 @@
+\<^marker>\<open>creator Eric Koepke\<close>
+
 theory RpowD
   imports "HOL-Analysis.Analysis"
 begin
 
-text {*In this file a vector type is defined, that is used for the linear predictor. The main goal
+paragraph \<open>Summary\<close>
+text \<open>In this file a vector type is defined, that is used for the linear predictor. The main goal
        of defining this type was making the vector size independent of the type, but this is not
        absolutely necessary and the type could be replaced by something more standard. Note, that
        it contains a pseudo scalar/inner product (minner) that is defined without instantiating
-       metric or normed space.*}
+       metric or normed space.\<close>
+
+section \<open>Type for Vector\<close>
 
 typedef movec = "{f::(nat \<Rightarrow> real). \<exists>k. \<forall>q>k. f q = 0}"
   morphisms vec_nth vec_lambda
   by auto
 
-section "Type-instantiations"
-text "This is all copy-paste from Finite Cartesian Products.
-Only the inner product space had to be adapted"
+subsection \<open>Type-instantiations\<close>
+
+text \<open>This is all copy-paste from Finite Cartesian Products.
+Only the inner product space had to be adapted\<close>
 
 instantiation movec :: zero
 begin
@@ -295,7 +301,7 @@ next
     using minner_comm minner_distrib by auto
 qed
 
-section "Important properties"
+subsection "Important properties"
 
 
 lemma le_valid: "(\<lambda>i. if i \<le> (k::nat) then f i else 0) \<in> {f. \<exists>j. \<forall>q>j. f q = 0}"
