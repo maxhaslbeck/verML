@@ -316,7 +316,7 @@ proof -
   also have "1/(sqrt((1 - \<epsilon> t)/\<epsilon> t)) = sqrt(\<epsilon> t) / sqrt((1 - \<epsilon> t))"
     by (simp add: real_sqrt_divide)
   also have "\<epsilon> t * sqrt((1 - \<epsilon> t)/(\<epsilon> t)) =  sqrt(1 - \<epsilon> t) * sqrt(\<epsilon> t)"
-    by (smt linordered_field_class.sign_simps(24) real_div_sqrt real_sqrt_divide s3 times_divide_eq_right)
+    by (smt mult.commute real_div_sqrt real_sqrt_divide s3 times_divide_eq_right)
   also have s19:"(1 - \<epsilon> t)* (sqrt (\<epsilon> t)/ sqrt(1 - \<epsilon> t)) = sqrt (\<epsilon> t)* sqrt(1 - \<epsilon> t)"
     using assms(1,3) by (smt less_divide_eq_1_pos mult.commute real_div_sqrt times_divide_eq_left)
   also have "sqrt (\<epsilon> t) * sqrt (1 - \<epsilon> t) + sqrt (1 - \<epsilon> t) * sqrt (\<epsilon> t)
@@ -909,8 +909,8 @@ proof -
   have a2:"\<forall>a\<in> Agg_res T C. finite (WH_res T a)" using final2(2) assms by auto
   have sfin: "\<forall>s\<in>?f ` ?S. finite s" using a2 by auto
   moreover have "\<forall>s\<in>?S. \<forall>t\<in>?S. s \<noteq> t \<longrightarrow> ?f s \<inter> ?f t = {}" by auto
-  ultimately have s1: "card (UNION ?S ?f) = (\<Sum>x\<in>?S. card (?f x))"
-    using card_Union_image a1 by auto
+  ultimately have s1: "card (Union (?f ` ?S)) = (\<Sum>x\<in>?S. card (?f x))"
+    using card_UN_disjoint a1 by auto
   have "(\<And>i. i \<in> Agg_res T C \<Longrightarrow> card (WH_res T i) \<le> (card C) ^ T)"
     using final2[of C] assms(1,3) by auto
   moreover have "(\<And>i. i \<in> Agg_res T C \<Longrightarrow> (card \<circ> (\<lambda>a. (\<lambda>w. (w, a)) ` WH_res T a)) i \<le> card (WH_res T i))"
@@ -922,12 +922,12 @@ proof -
   moreover have "card ?S \<le> ((card C)^d) ^ T" using final1 assms(1,2,4,5,6) by auto
   ultimately have "(\<Sum>x\<in>?S. card (?f x)) \<le> ((card C)^T)*(((card C)^d) ^ T)"
     by (smt add_mult_distrib2 le_Suc_ex mult.commute trans_le_add1)
-  then have "card (UNION ?S ?f) \<le> ((card C)^T)*(((card C)^d) ^ T)" using s1 by auto
+  then have "card (Union (?f ` ?S)) \<le> ((card C)^T)*(((card C)^d) ^ T)" using s1 by auto
   moreover have s5: "{map. \<exists>a\<in>Agg_res T C. \<exists>w\<in>WH_res T a. map = w \<circ>\<^sub>m a}
-   = (\<lambda>(w,a). w \<circ>\<^sub>m a) ` (UNION ?S ?f)" by auto
-  moreover have s6: "finite (UNION ?S ?f)" using sfin a1 by auto
+   = (\<lambda>(w,a). w \<circ>\<^sub>m a) ` (Union (?f ` ?S))" by auto
+  moreover have s6: "finite (Union (?f ` ?S))" using sfin a1 by auto
   ultimately have s2: "card ({map. \<exists>a\<in>Agg_res T C. \<exists>w\<in>WH_res T a. map = w \<circ>\<^sub>m a}) \<le> ((card C)^T)*(((card C)^d) ^ T)" 
-    using card_image_le[of "(UNION ?S ?f)" "(\<lambda>(w,a). w \<circ>\<^sub>m a)"] by auto
+    using card_image_le[of "(Union (?f ` ?S))" "(\<lambda>(w,a). w \<circ>\<^sub>m a)"] by auto
   have "((card C)^d) ^ T = (card C)^(d*T)"
     by (metis power_mult)
   moreover have "(card C)^T * (card C)^(d*T) = (card C)^(T*(d+1))"
@@ -1259,5 +1259,7 @@ next
             {0..(nat(floor(2*((d+1)*T)/ln(2) * ln(((d+1)*T)/ln(2)))))}"
     using o1(2) sum_mono2[of "{0..?a}" "{0..vcd}" "((choose) m)"] by auto
 qed
+
+end
 
 end

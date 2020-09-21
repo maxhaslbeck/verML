@@ -132,7 +132,7 @@ subsection\<open>Basic componentwise operations on movectors\<close>
 instantiation movec :: times
 begin
 
-definition "( * ) \<equiv> (\<lambda> x y.  vec_lambda (\<lambda> i. (vec_nth x i) * (vec_nth y i)))"
+definition "(*) \<equiv> (\<lambda> x y.  vec_lambda (\<lambda> i. (vec_nth x i) * (vec_nth y i)))"
 instance ..
 
 end
@@ -238,7 +238,7 @@ lemma minner_scale: "minner (scaleR r x) y = r * minner x y"
       = {q. movec.vec_nth x q \<noteq> 0 \<and> movec.vec_nth y q \<noteq> 0}" by simp 
     then show ?thesis unfolding minner_def
       using movector_scaleR_component sum_distrib_left inner_scaleR_left sum.cong by smt
-  qed
+  qed               
 
 lemma findef: "finite {q. movec.vec_nth x q \<noteq> 0 \<and> movec.vec_nth y q \<noteq> 0}"
    using movec.vec_nth infinite_nat_iff_unbounded by fastforce
@@ -379,13 +379,16 @@ definition unit_vec :: "nat \<Rightarrow> movec" where
 definition mybasis :: "nat \<Rightarrow> movec set" where
     "mybasis d = image (\<lambda>k. unit_vec k) {..<d}"
 
+lemma mybasis_subset_myroom: "(mybasis d) \<subseteq> myroom d"
+    unfolding  myroom_def mybasis_def unit_vec_def
+    apply safe
+    apply (subst movec.vec_lambda_inverse[where y="(\<lambda>i. if i = k then 1 else 0)" for k])
+    by auto
 
 lemma roomSpan: "myroom d = span (mybasis d)"
 proof -
-  have f1: "\<forall>(k::nat). (\<lambda>i. if i = k then 1 else 0) \<in> {f. \<exists>j. \<forall>q>j. f q = 0}"
+  have f1: "\<And>(k::nat). (\<lambda>i. if i = k then 1 else 0) \<in> {f. \<exists>j. \<forall>q>j. f q = 0}"
     by auto
-  have "(mybasis d) \<subseteq> myroom d" using f1 myroom_def mybasis_def unit_vec_def
-    by (smt image_subset_iff leD lessThan_iff mem_Collect_eq movec.vec_lambda_inverse) 
 
   have "myroom d \<subseteq> span (mybasis d)"
     apply rule
@@ -439,7 +442,7 @@ proof -
     fix x
     assume a1: "x \<in> span (mybasis d)"
     have "\<forall>y\<in>(mybasis d). \<forall>q\<ge>d. vec_nth y q = 0"
-      using \<open>(mybasis d) \<subseteq> myroom d\<close>
+      using mybasis_subset_myroom
       by (simp add: myroom_def subset_eq)
     then have "\<forall>r. \<forall>y\<in>(mybasis d). \<forall>q\<ge>d. vec_nth (scaleR (r y) y) q = 0" by auto
     then have "\<forall>r. \<forall>t\<subseteq>(mybasis d). \<forall>q\<ge>d. finite t \<longrightarrow> (\<Sum>a\<in>t. vec_nth (scaleR (r a) a) q) = 0"
@@ -457,7 +460,7 @@ proof -
 
 
 lemma indbasis: "independent (mybasis d)"
-proof(induct d)
+proof(induct d)     
  case 0
  then show ?case using independent_empty mybasis_def by auto
 next

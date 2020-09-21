@@ -123,8 +123,8 @@ proof -
   then have "inj (\<lambda>k. vec_lambda (\<lambda>i. if i = k then 1 else 0))" by (meson injI) 
   then have "card ?B = d"
     by (metis (no_types, lifting) card_image card_lessThan injD inj_on_def)
-  moreover have "?B \<subseteq> (myroom d)" using myroom_def f1
-    by (smt image_subset_iff leD lessThan_iff mem_Collect_eq movec.vec_lambda_inverse) 
+  moreover have "?B \<subseteq> (myroom d)"
+    by(rule mybasis_subset_myroom[unfolded unit_vec_def mybasis_def])
   moreover have "(\<forall>m\<in>(allmaps ?B {True, False}).\<exists>h\<in>(image mapify (all_linear (myroom d))). m \<subseteq>\<^sub>m h)"
   proof
     fix m

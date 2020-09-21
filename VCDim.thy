@@ -282,11 +282,11 @@ lemma "\<exists>f. bij_betw f Y {True, False}"
 proof -
   obtain y1 where "y1 \<in> Y" using cardY by fastforce
   obtain y2 where "y2 \<in> Y" "y2 \<noteq> y1" using cardY
-    by (metis card_2_exists)
+    by (metis card_2_iff')
   then obtain f where "f y1 = True" "f y2 = False" by auto
   have "bij_betw f Y {True, False}"
     apply (rule bij_betwI')
-    apply (metis \<open>f y1 = True\<close> \<open>f y2 = False\<close> \<open>y1 \<in> Y\<close> \<open>y2 \<in> Y\<close> cardY card_2_exists)
+    apply (metis \<open>f y1 = True\<close> \<open>f y2 = False\<close> \<open>y1 \<in> Y\<close> \<open>y2 \<in> Y\<close> cardY card_2_iff')
     apply simp
     using \<open>f y1 = True\<close> \<open>f y2 = False\<close> \<open>y1 \<in> Y\<close> \<open>y2 \<in> Y\<close> by blast
   then show ?thesis by auto
@@ -418,7 +418,7 @@ next
   proof -
   
     from cardY obtain a0 a1 where Y: "Y = {a0, a1}" "a0\<noteq>a1"  
-      by (meson card_2_exists card_2_explicit)  
+      by (meson card_2_iff' card_2_explicit)  
     then have allmaps_insertY: "(allmaps (insert c1 C') Y)
        = ((\<lambda>m. m(c1 \<mapsto> a0)) ` allmaps C' Y) \<union> ((\<lambda>m. m(c1 \<mapsto> a1)) ` allmaps C' Y)"
       unfolding allmaps_insert[OF c1(2)] by fast  
@@ -608,7 +608,12 @@ proof(induction m)
   then show ?case by auto
 next
   case (Suc m)
-  then show ?case using bb
+  {
+    fix n k
+    have *: "Suc n choose k = (n choose k) + (if k = 0 then 0 else (n choose (k - 1)))"
+    by (cases k) simp_all
+  } note * = this
+  from Suc show ?case using *
     by (metis add_leD1 diff_diff_cancel diff_is_0_eq le_SucE nat_le_linear) 
 qed
 
