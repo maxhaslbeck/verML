@@ -15,5 +15,8 @@ theories (* by Ralitsa Dardjonova *)
   "Subgradients"
   "SVM"
 
+theories (* by Manuel Eberl *)
+  "Hoeffding"
+
 document_files
   "root.bib"
